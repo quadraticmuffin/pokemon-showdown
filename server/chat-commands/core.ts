@@ -651,7 +651,7 @@ export const commands: Chat.ChatCommands = {
 			return this.errorReply(this.tr`This command only works in battle rooms.`);
 		}
 		if (!battle.inputLog) return this.errorReply(this.tr`No input log found.`);
-		const inputLog = battle.inputLog.slice(0, 5).join(`\n`).replace(/\r/g, '');
+		const inputLog = battle.inputLog.slice(0, 5).filter(str => str.includes('}')).join(`\n`).replace(/\r/g, '');
 		// IMPORT
 		const formatid = battle.format;
 		const newBattleRoom = Rooms.createBattle({format: formatid, inputLog: inputLog});
