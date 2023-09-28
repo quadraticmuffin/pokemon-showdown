@@ -650,7 +650,12 @@ export const commands: Chat.ChatCommands = {
 		if (!battle) {
 			return this.errorReply(this.tr`This command only works in battle rooms.`);
 		}
-		if (!battle.inputLog) return this.errorReply(this.tr`No input log found.`);
+		if (!battle.inputLog) {
+			this.errorReply(this.tr`This command only works when the battle has ended - if the battle has stalled, use /offertie.`);
+			if (user.can('forcewin')) this.errorReply(this.tr`Alternatively, you can end the battle with /forcetie.`);
+			return;
+		}
+		this.checkCan('exportinputlog', null, room);
 		const inputLog = battle.inputLog.slice(0, 5).filter(str => str.includes('}')).join(`\n`).replace(/\r/g, '');
 		// IMPORT
 		const formatid = battle.format;
