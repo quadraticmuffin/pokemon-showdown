@@ -643,6 +643,67 @@ export const commands: Chat.ChatCommands = {
 		`/allowexportinputlog [user] - Consents to sharing teams and choices from the current battle with the specified user.`,
 	],
 
+	runitback(target, room, user) {
+		// EXPORT
+		room = this.requireRoom();
+		const battle = room.battle;
+		if (!battle) {
+			return this.errorReply(this.tr`This command only works in battle rooms.`);
+		}
+		this.checkCan('exportinputlog', null, room);
+		if (user.can('forcewin') || Dex.formats.get(battle.format).team) {
+			if (!battle.inputLog) return this.errorReply(this.tr`No input log found.`);
+			const inputLog = battle.inputLog.slice(0, 5).join(`\n`).replace(/\r/g, '');
+			console.log(inputLog)
+			console.log(`\n`)
+			// IMPORT
+			this.checkCan('importinputlog');
+			const formatid = battle.format;
+			const newBattleRoom = Rooms.createBattle({format: formatid, inputLog: inputLog});
+			if (!newBattleRoom) return; // createBattle will inform the user if creating the battle failed
+			const newBattle = newBattleRoom.battle!
+			newBattle.p1.name = battle.p1.name
+			newBattle.p2.name = battle.p2.name
+			
+			newBattleRoom.auth.set(user.id, Users.HOST_SYMBOL);
+			for (const player of newBattleRoom.battle!.players) {
+				player.hasTeam = true;
+			}
+			this.parse(`/join ${newBattleRoom.roomid}`);
+			// INVITE PLAYERS
+			for (const player of newBattleRoom.battle!.players) {
+				const userToInvite = Users.get(player.name, true);
+				if (userToInvite === null) {
+					console.log(`couldn't find ${player.name}`);
+					return;
+				}
+				if (userToInvite.name === user.name) {
+					// join the game if already in the room
+					newBattleRoom.auth.set(user.id, Users.PLAYER_SYMBOL);
+					newBattle.joinGame(user, player.slot);
+					// if (!success) {
+					// 	room.auth.delete(user.id);
+					// }
+					// if (!battle.started) battle.sendInviteForm(true);
+				}
+				else {
+					// invite a user if not in the room already
+					player.invite = userToInvite.id;
+					// const ready = player.hasTeam ? battle.format : new Ladders.BattleReady(user.id, formatid, user.battleSettings);
+					Ladders.challenges.add(
+						new Ladders.BattleInvite(user.id, userToInvite.id, formatid, {
+							acceptCommand: `/acceptbattle ${user.id}`,
+							message: `You're invited to join a battle (with ${user.name})`,
+							roomid: newBattleRoom.roomid,
+						})
+					);
+					console.log(`||Invite sent to ${userToInvite.name}!`);
+					return;
+				}
+			}
+		}
+	},
+
 	requestinputlog: 'exportinputlog',
 	exportinputlog(target, room, user) {
 		room = this.requireRoom();
