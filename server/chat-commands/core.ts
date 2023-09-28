@@ -654,8 +654,6 @@ export const commands: Chat.ChatCommands = {
 		if (user.can('forcewin') || Dex.formats.get(battle.format).team) {
 			if (!battle.inputLog) return this.errorReply(this.tr`No input log found.`);
 			const inputLog = battle.inputLog.slice(0, 5).join(`\n`).replace(/\r/g, '');
-			console.log(inputLog)
-			console.log(`\n`)
 			// IMPORT
 			this.checkCan('importinputlog');
 			const formatid = battle.format;
@@ -697,7 +695,6 @@ export const commands: Chat.ChatCommands = {
 							roomid: newBattleRoom.roomid,
 						})
 					);
-					console.log(`||Invite sent to ${userToInvite.name}!`);
 					return;
 				}
 			}
