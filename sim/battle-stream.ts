@@ -45,6 +45,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 	replay: boolean | 'spectator';
 	keepAlive: boolean;
 	battle: Battle | null;
+	checkpoint: string | null;
 
 	constructor(options: {
 		debug?: boolean, noCatch?: boolean, keepAlive?: boolean, replay?: boolean | 'spectator',
@@ -55,6 +56,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		this.replay = options.replay || false;
 		this.keepAlive = !!options.keepAlive;
 		this.battle = null;
+		this.checkpoint = null;
 	}
 
 	_write(chunk: string) {
@@ -226,6 +228,19 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			break;
 		case 'version':
 		case 'version-origin':
+			break;
+		case 'save':
+			this.checkpoint = JSON.stringify(this.battle!.toJSON());
+			// console.log(this.checkpoint);
+			this.battle!.add(``, `Saved to checkpoint`)
+			break;
+		case 'load':
+			if (!this.checkpoint) throw new Error(`Can't load without first saving`);
+			const send = this.battle!.send;
+			// console.log(this.checkpoint);
+			this.battle = Battle.fromJSON(this.checkpoint);
+			this.battle.restart(send);
+			this.battle.add(``,`Loaded from checkpoint`);
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);

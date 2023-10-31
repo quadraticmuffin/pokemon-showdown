@@ -652,7 +652,6 @@ export const commands: Chat.ChatCommands = {
 		}
 		if (!battle.inputLog) {
 			this.errorReply(this.tr`This command only works when the battle has ended - if the battle has stalled, use /offertie.`);
-			if (user.can('forcewin')) this.errorReply(this.tr`Alternatively, you can end the battle with /forcetie.`);
 			return;
 		}
 		this.checkCan('exportinputlog', null, room);
@@ -700,6 +699,36 @@ export const commands: Chat.ChatCommands = {
 				return;
 			}
 		}
+	},
+
+	save(target, room, user) {
+		room = this.requireRoom();
+		const battle = room.battle!;
+		battle.save();
+		for (const player of battle.players) {
+			const req = player.request;
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			// shallow copy the request status
+			player.savedRequest = { ...player.request };
+			player.savedRequest.choice = '';
+		}
+		console.log(`battle rqid: ${battle.rqid}`);
+	},
+
+	load(target, room, user) {
+		room = this.requireRoom();
+		const battle = room.battle!;
+		battle.load();
+		let rqid = 0;
+		for (const player of battle.players) {
+			player.request = { ...player.savedRequest };
+			const req = player.request;
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			rqid = Math.max(player.request.rqid, rqid);
+		}
+		// overall battle.rqid gets reset to max of players
+		battle.rqid = rqid;
+		console.log(`battle rqid: ${battle.rqid}`);
 	},
 
 	requestinputlog: 'exportinputlog',

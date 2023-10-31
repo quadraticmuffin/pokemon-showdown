@@ -56,6 +56,7 @@ export class RoomBattlePlayer extends RoomGames.RoomGamePlayer<RoomBattle> {
 	readonly slot: SideID;
 	readonly channelIndex: ChannelIndex;
 	request: BattleRequestTracker;
+	savedRequest: BattleRequestTracker;
 	wantsTie: boolean;
 	wantsOpenTeamSheets: boolean | null;
 	active: boolean;
@@ -111,6 +112,7 @@ export class RoomBattlePlayer extends RoomGames.RoomGamePlayer<RoomBattle> {
 		this.channelIndex = (game.gameType === 'multi' && num > 2 ? num - 2 : num) as ChannelIndex;
 
 		this.request = {rqid: 0, request: '', isWait: 'cantUndo', choice: ''};
+		this.savedRequest = {rqid: 0, request: '', isWait: 'cantUndo', choice: ''};
 		this.wantsTie = false;
 		this.wantsOpenTeamSheets = null;
 		this.active = true;
@@ -663,6 +665,8 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		if (allPlayersWait || // too late
 			(rqid && rqid !== '' + request.rqid)) { // WAY too late
 			player.sendRoom(`|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started`);
+			if (allPlayersWait) player.sendRoom(`allPlayersWait`);
+			else player.sendRoom(`stored rqid is ${request.rqid}, sent was ${rqid}`);
 			return;
 		}
 		request.isWait = true;
@@ -862,7 +866,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 			if (!this.ended) {
 				this.ended = true;
 				void this.onEnd(this.logData!.winner);
-				this.clearPlayers();
+				// this.clearPlayers();
 			}
 			this.checkActive();
 			break;
@@ -871,61 +875,61 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	async onEnd(winner: any) {
 		this.timer.end();
 		// Declare variables here in case we need them for non-rated battles logging.
-		let p1score = 0.5;
-		const winnerid = toID(winner);
+		// let p1score = 0.5;
+		// const winnerid = toID(winner);
 
-		// Check if the battle was rated to update the ladder, return its response, and log the battle.
-		const p1name = this.p1.name;
-		const p2name = this.p2.name;
-		const p1id = toID(p1name);
-		const p2id = toID(p2name);
-		Chat.runHandlers('onBattleEnd', this, winnerid, [p1id, p2id, this.p3?.id, this.p4?.id].filter(Boolean));
-		if (this.room.rated) {
-			this.room.rated = 0;
+		// // Check if the battle was rated to update the ladder, return its response, and log the battle.
+		// const p1name = this.p1.name;
+		// const p2name = this.p2.name;
+		// const p1id = toID(p1name);
+		// const p2id = toID(p2name);
+		// Chat.runHandlers('onBattleEnd', this, winnerid, [p1id, p2id, this.p3?.id, this.p4?.id].filter(Boolean));
+		// if (this.room.rated) {
+		// 	this.room.rated = 0;
 
-			if (winnerid === p1id) {
-				p1score = 1;
-			} else if (winnerid === p2id) {
-				p1score = 0;
-			}
+		// 	if (winnerid === p1id) {
+		// 		p1score = 1;
+		// 	} else if (winnerid === p2id) {
+		// 		p1score = 0;
+		// 	}
 
-			winner = Users.get(winnerid);
-			if (winner && !winner.registered) {
-				this.room.sendUser(winner, '|askreg|' + winner.id);
-			}
-			const [score, p1rating, p2rating] = await Ladders(this.ladder).updateRating(p1name, p2name, p1score, this.room);
-			void this.logBattle(score, p1rating, p2rating);
-			Chat.runHandlers('onBattleRanked', this, winnerid, [p1rating, p2rating], [p1id, p2id]);
-		} else if (Config.logchallenges) {
-			if (winnerid === p1id) {
-				p1score = 1;
-			} else if (winnerid === p2id) {
-				p1score = 0;
-			}
-			void this.logBattle(p1score);
-		} else {
+		// 	winner = Users.get(winnerid);
+		// 	if (winner && !winner.registered) {
+		// 		this.room.sendUser(winner, '|askreg|' + winner.id);
+		// 	}
+		// 	const [score, p1rating, p2rating] = await Ladders(this.ladder).updateRating(p1name, p2name, p1score, this.room);
+		// 	void this.logBattle(score, p1rating, p2rating);
+		// 	Chat.runHandlers('onBattleRanked', this, winnerid, [p1rating, p2rating], [p1id, p2id]);
+		// } else if (Config.logchallenges) {
+		// 	if (winnerid === p1id) {
+		// 		p1score = 1;
+		// 	} else if (winnerid === p2id) {
+		// 		p1score = 0;
+		// 	}
+		// 	void this.logBattle(p1score);
+		// } else {
 			this.logData = null;
-		}
+		// }
 		// If a replay was saved at any point or we were configured to autosavereplays,
 		// reupload when the battle is over to overwrite the partial data (and potentially
 		// reflect any changes that may have been made to the replay's hidden status).
-		if (this.replaySaved || Config.autosavereplays) {
-			const uploader = Users.get(winnerid || p1id);
-			if (uploader?.connections[0]) {
-				Chat.parse('/savereplay silent', this.room, uploader, uploader.connections[0]);
-			}
-		}
-		const parentGame = this.room.parent && this.room.parent.game;
-		// @ts-ignore - Tournaments aren't TS'd yet
-		if (parentGame?.onBattleWin) {
-			// @ts-ignore
-			parentGame.onBattleWin(this.room, winnerid);
-		}
-		// If the room's replay was hidden, disable users from joining after the game is over
-		if (this.room.hideReplay) {
-			this.room.settings.modjoin = '%';
-			this.room.setPrivate('hidden');
-		}
+		// if (this.replaySaved || Config.autosavereplays) {
+		// 	const uploader = Users.get(winnerid || p1id);
+		// 	if (uploader?.connections[0]) {
+		// 		Chat.parse('/savereplay silent', this.room, uploader, uploader.connections[0]);
+		// 	}
+		// }
+		// const parentGame = this.room.parent && this.room.parent.game;
+		// // @ts-ignore - Tournaments aren't TS'd yet
+		// if (parentGame?.onBattleWin) {
+		// 	// @ts-ignore
+		// 	parentGame.onBattleWin(this.room, winnerid);
+		// }
+		// // If the room's replay was hidden, disable users from joining after the game is over
+		// if (this.room.hideReplay) {
+		// 	this.room.settings.modjoin = '%';
+		// 	this.room.setPrivate('hidden');
+		// }
 		this.room.update();
 	}
 	async logBattle(
@@ -1335,6 +1339,13 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		});
 		const result = await logPromise;
 		return result;
+	}
+
+	save() {
+		this.stream.write(">save ");
+	}
+	load() {
+		this.stream.write(">load ");
 	}
 }
 
