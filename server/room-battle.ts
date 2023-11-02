@@ -1342,10 +1342,42 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	}
 
 	save() {
-		this.stream.write(">save ");
+		void this.stream.write(">save ");
+		for (const player of this.players) {
+			const req = player.request;
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			// shallow copy the request status
+			player.savedRequest = { ...player.request };
+			player.savedRequest.choice = '';
+			if (req.isWait !== 'cantUndo') {
+				// send player their rqid if expecting response from them after load
+				player.sendRoom(`|save|${req.rqid}`);
+			}
+			else {
+				player.sendRoom(`|save|none`)
+			}
+		}
+		console.log(`battle rqid: ${this.rqid}`);
 	}
 	load() {
-		this.stream.write(">load ");
+		void this.stream.write(">load ");
+		let rqid = 0;
+		for (const player of this.players) {
+			player.request = { ...player.savedRequest };
+			const req = player.request;
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			rqid = Math.max(player.request.rqid, rqid);
+			if (req.isWait !== 'cantUndo') {
+				// send player their rqid if expecting response from them after load
+				player.sendRoom(`|load|${req.rqid}`);
+			}
+			else {
+				player.sendRoom(`|load|none`)
+			}
+		}
+		// overall this.rqid gets reset to max of players
+		this.rqid = rqid;
+		console.log(`battle rqid: ${this.rqid}`);
 	}
 }
 

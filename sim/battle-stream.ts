@@ -232,7 +232,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		case 'save':
 			this.checkpoint = JSON.stringify(this.battle!.toJSON());
 			// console.log(this.checkpoint);
-			this.battle!.add(``, `Saved to checkpoint`)
+			// this.battle!.add(``, `Saved to checkpoint`)
 			break;
 		case 'load':
 			if (!this.checkpoint) throw new Error(`Can't load without first saving`);
@@ -240,7 +240,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			// console.log(this.checkpoint);
 			this.battle = Battle.fromJSON(this.checkpoint);
 			this.battle.restart(send);
-			this.battle.add(``,`Loaded from checkpoint`);
+			// this.battle.add(``,`Loaded from checkpoint`);
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);
