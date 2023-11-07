@@ -662,11 +662,12 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 			return;
 		}
 		const allPlayersWait = this.players.every(p => !!p.request.isWait);
-		if (allPlayersWait || // too late
-			(rqid && rqid !== '' + request.rqid)) { // WAY too late
-			player.sendRoom(`|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started`);
-			if (allPlayersWait) player.sendRoom(`allPlayersWait`);
-			else player.sendRoom(`stored rqid is ${request.rqid}, sent was ${rqid}`);
+		if (allPlayersWait){
+			player.sendRoom(`|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started; allPlayersWait`);
+			return;
+		} // too late
+		else if (rqid && rqid !== '' + request.rqid) { // WAY too late
+			player.sendRoom(`|error|[Invalid choice] Wrong rqid. Server wants ${request.rqid}, player sent ${rqid}`);
 			return;
 		}
 		request.isWait = true;
@@ -1343,9 +1344,10 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 
 	save() {
 		void this.stream.write(">save ");
+		console.log(`SAVING`)
 		for (const player of this.players) {
 			const req = player.request;
-			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			// shallow copy the request status
 			player.savedRequest = { ...player.request };
 			player.savedRequest.choice = '';
@@ -1357,15 +1359,16 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 				player.sendRoom(`|save|none`)
 			}
 		}
-		console.log(`battle rqid: ${this.rqid}`);
+		console.log(`battle rqid: ${this.rqid}\n`);
 	}
 	load() {
 		void this.stream.write(">load ");
+		console.log(`LOADING`)
 		let rqid = 0;
 		for (const player of this.players) {
 			player.request = { ...player.savedRequest };
 			const req = player.request;
-			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}`);
+			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			rqid = Math.max(player.request.rqid, rqid);
 			if (req.isWait !== 'cantUndo') {
 				// send player their rqid if expecting response from them after load
@@ -1377,7 +1380,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		}
 		// overall this.rqid gets reset to max of players
 		this.rqid = rqid;
-		console.log(`battle rqid: ${this.rqid}`);
+		console.log(`battle rqid: ${this.rqid}\n`);
 	}
 }
 
