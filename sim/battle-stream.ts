@@ -236,7 +236,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
 			// if no message, reseed the PRNG.
-			if (!message) break;
+			if (message) break;
 		case 'reseed':
 			const seed = message ? message.split(',').map(Number) as PRNGSeed : null;
 			this.battle!.resetRNG(seed);
