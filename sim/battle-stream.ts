@@ -137,12 +137,6 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle!.lose(message as SideID);
 			this.battle!.inputLog.push(`>forcelose ${message}`);
 			break;
-		case 'reseed':
-			const seed = message ? message.split(',').map(Number) as PRNGSeed : null;
-			this.battle!.resetRNG(seed);
-			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
-			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
-			break;
 		case 'tiebreak':
 			this.battle!.tiebreak();
 			break;
@@ -241,6 +235,13 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle = Battle.fromJSON(this.checkpoint);
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
+			// if no message, reseed the PRNG.
+			if (!message) break;
+		case 'reseed':
+			const seed = message ? message.split(',').map(Number) as PRNGSeed : null;
+			this.battle!.resetRNG(seed);
+			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
+			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);

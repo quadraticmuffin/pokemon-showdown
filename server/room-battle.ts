@@ -1361,8 +1361,8 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		}
 		console.log(`battle rqid: ${this.rqid}\n`);
 	}
-	load() {
-		void this.stream.write(">load ");
+	load(target: string) {
+		void this.stream.write(`>load ${target}`);
 		console.log(`LOADING`)
 		let rqid = 0;
 		for (const player of this.players) {
