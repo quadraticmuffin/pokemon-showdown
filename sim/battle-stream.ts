@@ -236,6 +236,9 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
 			console.log('loaded');
+			for (const side of this.battle!.sides) {
+				this.battle!.undoChoice(side.id);
+			}
 			if (message === 'keepseed') {
 				this.battle!.makeRequest();
 				break;
@@ -254,9 +257,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		// in this case the message must be a sideID ('p1', 'p2')
 		case 'rerollteam':
 			this.battle!.rerollTeam(message as SideID);
-			console.log('rerolled team');
 			this.battle!.makeRequest();
-			console.log('made fresh requests');
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);

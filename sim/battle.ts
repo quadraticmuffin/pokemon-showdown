@@ -356,7 +356,6 @@ export class Battle {
 	/** Note that passing `undefined` resets to the starting seed, but `null` will roll a new seed */
 	resetRNG(seed: PRNGSeed | null = this.prng.startingSeed) {
 		this.prng = new PRNG(seed);
-		this.add('message', "The battle's RNG was reset.");
 	}
 
 	rerollTeam(sideid: SideID) {
@@ -369,8 +368,6 @@ export class Battle {
 		let j = 0; // j iterates over new team, i over old team
 		for (let i = 0; i < side.pokemon.length; i++) {
 			const revealed = side.pokemon[i].previouslySwitchedIn;
-			// console.log(`newPkmn ${newTeam[j].species}`);
-			// console.log(`oldPkmn ${side.pokemon[i].species}, revealed: ${revealed}`);
 			// replace unrevealed pkmn
 			if (!revealed) {
 				// choose species
@@ -384,7 +381,7 @@ export class Battle {
 		for (const [i, oldSet] of side.team.entries()) {
 			let revealed = false;
 			for (const p of side.pokemon) {
-				if (p.species.id === oldSet.species && p.previouslySwitchedIn) {
+				if (p.species.name === oldSet.species && p.previouslySwitchedIn) {
 					revealed = true;
 				}
 			}
@@ -395,10 +392,7 @@ export class Battle {
 				j++;
 			}
 		}
-		// console.log(`rerolled team:`);
-		// for (const p of side.pokemon) {
-			// console.log(`${p.species}`)
-		// }
+		console.log(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
 	}
 
 	suppressingAbility(target?: Pokemon) {
@@ -1246,7 +1240,6 @@ export class Battle {
 		} else {
 			type = this.requestState;
 		}
-		console.log(`making request of type ${type}`)
 
 		for (const side of this.sides) {
 			side.activeRequest = null;
