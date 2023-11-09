@@ -889,6 +889,129 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			level,
 		};
 	}
+
+	randomTeamFromPartial(oldTeam: PokemonSet[], revealedBaseSpecies: string[]) {
+		const seed = this.prng.seed;
+		const pokemon: RandomTeamsTypes.RandomSet[] = [];
+
+		const baseFormes: {[k: string]: number} = {};
+		const tierCount: {[k: string]: number} = {};
+		const typeCount: {[k: string]: number} = {};
+		const typeComboCount: {[k: string]: number} = {};
+		const typeWeaknesses: {[k: string]: number} = {};
+		const teamDetails: RandomTeamsTypes.TeamDetails = {};
+
+		const [pokemonPool, baseSpeciesPool] = this.getPokemonPool(``, pokemon, false, Object.keys(this.randomData));
+		// REMOVE SPECIES ALREADY IN THE OLD TEAM
+		for (let i = baseSpeciesPool.length-1; i >= 0; i--) {
+			if (revealedBaseSpecies.includes(baseSpeciesPool[i])) {
+				this.fastPop(baseSpeciesPool, i);
+			}
+		}
+
+		while (baseSpeciesPool.length && pokemon.length < this.maxTeamSize) {
+			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
+			const currentSpeciesPool: Species[] = [];
+			for (const poke of pokemonPool) {
+				const species = this.dex.species.get(poke);
+				if (species.baseSpecies === baseSpecies) currentSpeciesPool.push(species);
+			}
+			const species = this.sample(currentSpeciesPool);
+			if (!species.exists) continue;
+
+			// Limit to one of each species (Species Clause)
+			if (baseFormes[species.baseSpecies]) continue;
+
+			// Dynamically scale limits for different team sizes. The default and minimum value is 1.
+			const limitFactor = Math.round(this.maxTeamSize / 6) || 1;
+			const tier = species.tier;
+
+			const set = this.randomSet(species, teamDetails, pokemon.length === 0);
+
+			const types = species.types;
+			let typeCombo = types.slice().sort().join();
+
+			// Limit two of any type
+			let skip = false;
+			for (const typeName of types) {
+				if (typeCount[typeName] >= 2 * limitFactor) {
+					skip = true;
+					break;
+				}
+			}
+			if (skip) continue;
+
+			// Limit three weak to any type
+			for (const typeName of this.dex.types.names()) {
+				// it's weak to the type
+				if (this.dex.getEffectiveness(typeName, species) > 0) {
+					if (!typeWeaknesses[typeName]) typeWeaknesses[typeName] = 0;
+					if (typeWeaknesses[typeName] >= 3 * limitFactor) {
+						skip = true;
+						break;
+					}
+				}
+			}
+			if (skip) continue;
+
+			// Limit one of any type combination
+			if (set.ability === 'Drought' || set.ability === 'Drizzle' || set.ability === 'Sand Stream') {
+				// Drought, Drizzle and Sand Stream don't count towards the type combo limit
+				typeCombo = set.ability;
+				if (typeCombo in typeComboCount) continue;
+			} else {
+				if (typeComboCount[typeCombo] >= 1 * limitFactor) continue;
+			}
+
+			// Okay, the set passes, add it to our team
+			pokemon.push(set);
+
+			// Now that our Pokemon has passed all checks, we can increment our counters
+			baseFormes[species.baseSpecies] = 1;
+
+			// Increment tier counter
+			if (tierCount[tier]) {
+				tierCount[tier]++;
+			} else {
+				tierCount[tier] = 1;
+			}
+
+			// Increment type counters
+			for (const typeName of types) {
+				if (typeName in typeCount) {
+					typeCount[typeName]++;
+				} else {
+					typeCount[typeName] = 1;
+				}
+			}
+			if (typeCombo in typeComboCount) {
+				typeComboCount[typeCombo]++;
+			} else {
+				typeComboCount[typeCombo] = 1;
+			}
+
+			// Increment weakness counter
+			for (const typeName of this.dex.types.names()) {
+				// it's weak to the type
+				if (this.dex.getEffectiveness(typeName, species) > 0) {
+					typeWeaknesses[typeName]++;
+				}
+			}
+
+			// Team details
+			if (set.ability === 'Snow Warning' || set.moves.includes('hail')) teamDetails.hail = 1;
+			if (set.ability === 'Drizzle' || set.moves.includes('raindance')) teamDetails.rain = 1;
+			if (set.ability === 'Sand Stream') teamDetails.sand = 1;
+			if (set.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
+			if (set.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
+			if (set.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
+		}
+		if (pokemon.length < this.maxTeamSize && pokemon.length < 12) {
+			throw new Error(`Could not build a random team for ${this.format} (seed=${seed})`);
+		}
+
+		return pokemon;
+	}
 }
 
 export default RandomGen4Teams;

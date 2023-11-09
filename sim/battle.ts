@@ -359,6 +359,48 @@ export class Battle {
 		this.add('message', "The battle's RNG was reset.");
 	}
 
+	rerollTeam(sideid: SideID) {
+		const side = this.getSide(sideid);
+		const revealedBaseSpecies = side.pokemon.filter((el)=>{return el.previouslySwitchedIn}).map((el)=>{return el.species.baseSpecies})
+		// .species.baseSpecies instead of just .baseSpecies
+		// because revealedBaseSpecies should be a string[], not a Species[]
+		this.teamGenerator = Teams.getGenerator(this.format, this.prng.seed);
+		const newTeam = this.teamGenerator.randomTeamFromPartial(side.team, revealedBaseSpecies);
+		let j = 0; // j iterates over new team, i over old team
+		for (let i = 0; i < side.pokemon.length; i++) {
+			const revealed = side.pokemon[i].previouslySwitchedIn;
+			// console.log(`newPkmn ${newTeam[j].species}`);
+			// console.log(`oldPkmn ${side.pokemon[i].species}, revealed: ${revealed}`);
+			// replace unrevealed pkmn
+			if (!revealed) {
+				// choose species
+				side.pokemon[i] = new Pokemon(newTeam[j], side);
+				side.pokemon[i].position = i;
+				j++;
+			}
+		}
+		// do the same for team instead of pokemon
+		j = 0; // j iterates over new team, i over old team
+		for (const [i, oldSet] of side.team.entries()) {
+			let revealed = false;
+			for (const p of side.pokemon) {
+				if (p.species.id === oldSet.species && p.previouslySwitchedIn) {
+					revealed = true;
+				}
+			}
+			// replace unrevealed pkmn
+			if (!revealed) {
+				// choose species
+				side.team[i] = newTeam[j];
+				j++;
+			}
+		}
+		// console.log(`rerolled team:`);
+		// for (const p of side.pokemon) {
+			// console.log(`${p.species}`)
+		// }
+	}
+
 	suppressingAbility(target?: Pokemon) {
 		return this.activePokemon && this.activePokemon.isActive && (this.activePokemon !== target || this.gen < 8) &&
 			this.activeMove && this.activeMove.ignoreAbility && !target?.hasItem('Ability Shield');
@@ -1204,6 +1246,7 @@ export class Battle {
 		} else {
 			type = this.requestState;
 		}
+		console.log(`making request of type ${type}`)
 
 		for (const side of this.sides) {
 			side.activeRequest = null;

@@ -708,7 +708,7 @@ export const commands: Chat.ChatCommands = {
 
 	load(target, room, user) {
 		room = this.requireRoom();
-		room.battle!.load(target);
+		room.battle!.load(target, user);
 	},
 
 	requestinputlog: 'exportinputlog',

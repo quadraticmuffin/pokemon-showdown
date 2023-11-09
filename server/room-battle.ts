@@ -1361,8 +1361,23 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		}
 		console.log(`battle rqid: ${this.rqid}\n`);
 	}
-	load(target: string) {
-		void this.stream.write(`>load ${target}`);
+	load(target: string, user: User) {
+		if (['keepseed', 'keepteam'].includes(target)) {
+			console.log(`roombattle: writing '>load ${target}' to stream`);
+			void this.stream.write(`>load ${target}`);
+		}
+		else {
+			let foundPlayer = false;
+			for (const player of this.players) {
+				const slot = player.slot;
+				if (player.id !== user.id) {
+					console.log(`roombattle: writing '>load ${slot}' to stream`);
+					void this.stream.write(`>load ${slot}`);
+					foundPlayer = true;
+				}
+			}
+			if (!foundPlayer) throw new Error(`/load ${target} not valid, or ${user} not found in battle`);
+		}
 		console.log(`LOADING`)
 		let rqid = 0;
 		for (const player of this.players) {

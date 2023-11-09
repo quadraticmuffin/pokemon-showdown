@@ -235,13 +235,28 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle = Battle.fromJSON(this.checkpoint);
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
-			// if no message, reseed the PRNG.
-			if (message) break;
+			console.log('loaded');
+			if (message === 'keepseed') {
+				this.battle!.makeRequest();
+				break;
+			}
+		// if no keepseed, reseed the PRNG.
 		case 'reseed':
-			const seed = message ? message.split(',').map(Number) as PRNGSeed : null;
-			this.battle!.resetRNG(seed);
+			this.battle!.resetRNG(null);
 			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
 			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
+			console.log('reseeded');
+			if (message === `keepteam`) {
+				this.battle!.makeRequest();
+				break;
+			}
+		// if (no keepseed and no keepteam), reroll the team.
+		// in this case the message must be a sideID ('p1', 'p2')
+		case 'rerollteam':
+			this.battle!.rerollTeam(message as SideID);
+			console.log('rerolled team');
+			this.battle!.makeRequest();
+			console.log('made fresh requests');
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);
