@@ -1342,8 +1342,8 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		return result;
 	}
 
-	save() {
-		void this.stream.write(">save ");
+	save(target: string) {
+		void this.stream.write(`>save ${target}`);
 		console.log(`SAVING`)
 		for (const player of this.players) {
 			const req = player.request;
@@ -1380,6 +1380,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		}
 		console.log(`LOADING`)
 		let rqid = 0;
+		let active_reqs = 0;
 		for (const player of this.players) {
 			player.request = { ...player.savedRequest };
 			const req = player.request;
@@ -1388,13 +1389,17 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 			if (req.isWait !== 'cantUndo') {
 				// send player their rqid if expecting response from them after load
 				player.sendRoom(`|load|${req.rqid}`);
+				active_reqs++;
 			}
 			else {
 				player.sendRoom(`|load|none`)
 			}
 		}
 		// overall this.rqid gets reset to max of players
-		this.rqid = rqid;
+		// but new requests will be sent so we subtract
+		// same rqid for same turn
+		this.rqid = rqid - active_reqs;
+		console.log(`decremented rqid to ${this.rqid}`);
 		console.log(`battle rqid: ${this.rqid}\n`);
 	}
 }
