@@ -892,17 +892,16 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	}
 
 	randomConstrainedSet(
-		species: string | Species,
 		criteria: SetCriteria,
 		attempts = 100, 
 		teamDetails: RandomTeamsTypes.TeamDetails = {},
-		isLead = false
 	): RandomTeamsTypes.RandomSet {
+		const isLead = criteria.isLead;
 		const oldItem = criteria.item ? toID(criteria.item) : undefined;
 		const oldAbility = criteria.ability ? toID(criteria.ability) : undefined;
 		const oldMoves = criteria.moves.map(toID);
 		for (let i = 0; i < attempts; i++) {
-			const newSet = this.randomConstrainedSetInner(species, criteria, teamDetails, isLead);
+			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, isLead);
 			const setHasMove = (oldMove: ID) => {
 				return newSet.moves.map((newMove) => {
 					const newMoveId = toID(newMove);
@@ -935,13 +934,12 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	}
 
 	randomConstrainedSetInner(
-		species: string | Species,
 		criteria: SetCriteria,
 		teamDetails: RandomTeamsTypes.TeamDetails = {},
 		isLead = false
 	) {
-		console.log(`\nCHOOSING SET FOR ${species}`);
-		species = this.dex.species.get(species);
+		console.log(`\nCHOOSING SET FOR ${criteria.species}`);
+		const species = this.dex.species.get(criteria.species);
 		let forme = species.name;
 
 		if (typeof species.battleOnly === 'string') forme = species.battleOnly;
@@ -1191,7 +1189,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 		} while (moves.size < this.maxMoveCount && (movePool.length || rejectedPool.length));
 
-		if (moves.size < this.maxMoveCount) throw new Error(`not enough moves: ${Array.from(moves)}`);
+		if (moves.size < this.maxMoveCount && criteria.species !== 'ditto') throw new Error(`not enough moves: ${Array.from(moves)}`);
 
 		if (hasHiddenPower) {
 			let hpType;
@@ -1357,7 +1355,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// }
 		// for (const oldSet of oldSets) {
 			// const species = this.dex.species.get(oldSet.species);
-			const newSet = this.randomConstrainedSet(species, oldSet, 10000, teamDetails, pokemon.length===0)
+			const newSet = this.randomConstrainedSet(oldSet, 10000, teamDetails)
 			
 			pokemon.push(newSet);
 			// Team details

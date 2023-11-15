@@ -63,7 +63,7 @@ export interface SetCriteria {
 	moves: string[];
 	ability?: string;
 	item?: string;
-	// isLead: Boolean;
+	isLead: boolean;
 }
 
 interface BattleOptions {

@@ -235,7 +235,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 					const criteria: SetCriteria = {
 						species: set.species,
 						moves: set.moves,
-						// isLead: set.isLead,
+						isLead: set.isLead,
 					};
 					if (set.item !== 'unknown') {
 						criteria.item = set.item;
@@ -247,7 +247,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 				}
 				console.log(`parsed sets:`);
 				for (const set of this.checkpointSets) {
-					console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}]`);
+					console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
 				}
 			}
 			// console.log(this.checkpoint);
