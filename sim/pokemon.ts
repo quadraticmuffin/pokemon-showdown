@@ -1834,6 +1834,52 @@ export class Pokemon {
 		return this.battle.dex.natures.get(this.set.nature);
 	}
 
+	replaceSet(newSet: PokemonSet) {
+		console.log(`OLD species: ${this.set.species} | item: ${this.set.item} | ability: ${this.set.ability} | moves: [${this.set.moves}]`);
+		console.log(`NEW species: ${newSet.species} | item: ${newSet.item} | ability: ${newSet.ability} | moves: [${newSet.moves}]`);
+
+		this.setItem(newSet.item);
+		this.set.item = newSet.item;
+		this.setAbility(newSet.ability);
+		this.set.ability = newSet.ability;
+		let bmsIdx = 0; 
+		const newMoveIDs = newSet.moves.map(toID);
+		for (const moveid of newSet.moves) {
+			let move = this.battle.dex.moves.get(moveid);
+			if (!move.id) {
+				console.log(`move ${move} has no id`);
+				throw new Error()
+			}
+			if (this.moves.includes(move.id)) {
+				console.log(`already has ${moveid}`);
+				// const oldMove = this.moveSlots.find(m => m.id === moveid);
+				// baseMoveSlots.push(oldMove!);
+				continue;
+			}
+			if (move.id === 'hiddenpower' && move.type !== 'Normal') {
+				this.hpType = move.type;
+				move = this.battle.dex.moves.get('hiddenpower');
+			}
+			let basepp = (move.noPPBoosts || move.isZ) ? move.pp : move.pp * 8 / 5;
+			if (this.battle.gen < 3) basepp = Math.min(61, basepp);
+			while (newMoveIDs.includes(this.baseMoveSlots[bmsIdx].id)) bmsIdx++;
+			this.baseMoveSlots[bmsIdx] = {
+				move: move.name,
+				id: move.id,
+				pp: basepp,
+				maxpp: basepp,
+				target: move.target,
+				disabled: false,
+				disabledSource: '',
+				used: false,
+			};
+			bmsIdx++;
+		}
+		this.moveSlots = this.baseMoveSlots.slice();
+		for (let i = 0; i < this.moves.length; i++) this.set.moves[i] = this.moves[i];
+		console.log(`FINAL species: ${this.species} | item: ${this.item} | ability: ${this.ability} | moves: [${this.moves}]`);
+	}
+
 	addVolatile(
 		status: string | Condition, source: Pokemon | null = null, sourceEffect: Effect | null = null,
 		linkedStatus: string | Condition | null = null

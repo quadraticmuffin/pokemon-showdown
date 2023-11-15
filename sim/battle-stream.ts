@@ -11,7 +11,7 @@
 
 import {Streams, Utils} from '../lib';
 import {Teams} from './teams';
-import {Battle, extractChannelMessages} from './battle';
+import {Battle, extractChannelMessages, SetCriteria} from './battle';
 
 /**
  * Like string.split(delimiter), but only recognizes the first `limit`
@@ -46,6 +46,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 	keepAlive: boolean;
 	battle: Battle | null;
 	checkpoint: string | null;
+	checkpointSets: SetCriteria[];
 
 	constructor(options: {
 		debug?: boolean, noCatch?: boolean, keepAlive?: boolean, replay?: boolean | 'spectator',
@@ -57,6 +58,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		this.keepAlive = !!options.keepAlive;
 		this.battle = null;
 		this.checkpoint = null;
+		this.checkpointSets = [];
 	}
 
 	_write(chunk: string) {
@@ -225,6 +227,29 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			break;
 		case 'save':
 			this.checkpoint = JSON.stringify(this.battle!.toJSON());
+			if (message){
+				console.log(`message from save is ${message}`);
+				const parsed_sets = JSON.parse(message);
+				this.checkpointSets = [];
+				for (const set of parsed_sets) {
+					const criteria: SetCriteria = {
+						species: set.species,
+						moves: set.moves,
+						// isLead: set.isLead,
+					};
+					if (set.item !== 'unknown') {
+						criteria.item = set.item;
+					}
+					if (set.ability !== 'unknown') {
+						criteria.ability = set.ability;
+					}
+					this.checkpointSets.push(criteria);
+				}
+				console.log(`parsed sets:`);
+				for (const set of this.checkpointSets) {
+					console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}]`);
+				}
+			}
 			// console.log(this.checkpoint);
 			// this.battle!.add(``, `Saved to checkpoint`)
 			break;
@@ -256,7 +281,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		// if (no keepseed and no keepteam), reroll the team.
 		// in this case the message must be a sideID ('p1', 'p2')
 		case 'rerollteam':
-			this.battle!.rerollTeam(message as SideID);
+			this.battle!.rerollTeam(message as SideID, this.checkpointSets);
 			this.battle!.makeRequest();
 			break;
 		default:

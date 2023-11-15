@@ -58,6 +58,13 @@ export function extractChannelMessages<T extends ChannelID | -1>(message: string
 	return channelMessages;
 }
 
+export interface SetCriteria {
+	species: string;
+	moves: string[];
+	ability?: string;
+	item?: string;
+	// isLead: Boolean;
+}
 
 interface BattleOptions {
 	format?: Format;
@@ -358,40 +365,42 @@ export class Battle {
 		this.prng = new PRNG(seed);
 	}
 
-	rerollTeam(sideid: SideID) {
+	rerollTeam(sideid: SideID, checkpointSets: SetCriteria[]) {
+		if (checkpointSets.length === 0) {
+			throw new Error(`shouldn't be rerolling a team without saving first`);
+			// probably just need to pass checkpointSets 
+			// into randomTeamFromPartial
+			// and do the bulk of the work in there
+		}
 		const side = this.getSide(sideid);
-		const revealedBaseSpecies = side.pokemon.filter((el)=>{return el.previouslySwitchedIn}).map((el)=>{return el.species.baseSpecies})
 		// .species.baseSpecies instead of just .baseSpecies
 		// because revealedBaseSpecies should be a string[], not a Species[]
 		this.teamGenerator = Teams.getGenerator(this.format, this.prng.seed);
-		const newTeam = this.teamGenerator.randomTeamFromPartial(side.team, revealedBaseSpecies);
-		let j = 0; // j iterates over new team, i over old team
-		for (let i = 0; i < side.pokemon.length; i++) {
-			const revealed = side.pokemon[i].previouslySwitchedIn;
-			// replace unrevealed pkmn
-			if (!revealed) {
-				// choose species
+		const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, side.team.length);
+		const savedSpecies = checkpointSets.map(set => toID(set.species));
+		const oldSpecies = side.team.map(set => set.species);
+		const newSpecies = newTeam.map(set => set.species);
+		console.log(`${oldSpecies} -> ${newSpecies}`);
+		let j = 0; // j iterates over new team, i over actual pokemon
+		for (const [i, poke] of side.pokemon.entries()) {
+			console.log(`checking if [${savedSpecies}] contains ${poke.species.id}`);
+			if (savedSpecies.includes(poke.species.id)) {
+				console.log(`team already contains ${poke.species.id}`);
+				// replace unrevealed items, abilities, moves of revealed pkmn
+				const newSet = newTeam.find(set => set.species === poke.species.name);
+				poke.replaceSet(newSet as PokemonSet);
+			}
+			else {
+				while (savedSpecies.includes(toID(newTeam[j].species))) j++;
+				console.log(`new ${newTeam[j].species} will replace ${poke.species.id}`)
+				// replace unrevealed pkmn
 				side.pokemon[i] = new Pokemon(newTeam[j], side);
 				side.pokemon[i].position = i;
 				j++;
 			}
 		}
 		// do the same for team instead of pokemon
-		j = 0; // j iterates over new team, i over old team
-		for (const [i, oldSet] of side.team.entries()) {
-			let revealed = false;
-			for (const p of side.pokemon) {
-				if (p.species.name === oldSet.species && p.previouslySwitchedIn) {
-					revealed = true;
-				}
-			}
-			// replace unrevealed pkmn
-			if (!revealed) {
-				// choose species
-				side.team[i] = newTeam[j];
-				j++;
-			}
-		}
+		side.team = side.pokemon.map(p => p.set);
 		console.log(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
 	}
 
