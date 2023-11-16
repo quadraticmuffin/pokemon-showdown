@@ -1189,7 +1189,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 		} while (moves.size < this.maxMoveCount && (movePool.length || rejectedPool.length));
 
-		if (moves.size < this.maxMoveCount && criteria.species !== 'ditto') throw new Error(`not enough moves: ${Array.from(moves)}`);
+		if (moves.size < this.maxMoveCount && !['ditto', 'unown'].includes(criteria.species)) throw new Error(`not enough moves: ${Array.from(moves)}`);
 
 		if (hasHiddenPower) {
 			let hpType;
@@ -1370,6 +1370,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// reroll unseen pokemon
 		while (baseSpeciesPool.length && pokemon.length < teamSize) {
 			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
+			if (baseSpecies === 'Ditto') continue;
 			const currentSpeciesPool: Species[] = [];
 			for (const poke of pokemonPool) {
 				const species = this.dex.species.get(poke);

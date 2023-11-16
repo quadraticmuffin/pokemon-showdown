@@ -860,6 +860,7 @@ export class RandomGen5Teams extends RandomGen6Teams {
 		const [pokemonPool, baseSpeciesPool] = this.getPokemonPool(type, pokemon, isMonotype, Object.keys(this.randomData));
 		while (baseSpeciesPool.length && pokemon.length < this.maxTeamSize) {
 			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
+			if (baseSpecies === 'Ditto') continue;
 			const currentSpeciesPool: Species[] = [];
 			for (const poke of pokemonPool) {
 				const species = this.dex.species.get(poke);

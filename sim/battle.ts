@@ -366,6 +366,7 @@ export class Battle {
 	}
 
 	rerollTeam(sideid: SideID, checkpointSets: SetCriteria[]) {
+		const getBaseSpecies = (s: string) => this.dex.species.get(s).baseSpecies;
 		if (checkpointSets.length === 0) {
 			throw new Error(`shouldn't be rerolling a team without saving first`);
 			// probably just need to pass checkpointSets 
@@ -377,22 +378,29 @@ export class Battle {
 		// because revealedBaseSpecies should be a string[], not a Species[]
 		this.teamGenerator = Teams.getGenerator(this.format, this.prng.seed);
 		const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, side.team.length);
+
 		const savedSpecies = checkpointSets.map(set => toID(set.species));
+		const savedBaseSpecies = savedSpecies.map(getBaseSpecies);
 		const oldSpecies = side.team.map(set => set.species);
 		const newSpecies = newTeam.map(set => set.species);
 		console.log(`${oldSpecies} -> ${newSpecies}`);
+
 		let j = 0; // j iterates over new team, i over actual pokemon
+		console.log(`saved mons: [${savedSpecies}]`);
 		for (const [i, poke] of side.pokemon.entries()) {
-			console.log(`checking if [${savedSpecies}] contains ${poke.species.id}`);
+			// if baseSpecies is saved, just replace the set
 			if (savedSpecies.includes(poke.species.id)) {
-				console.log(`team already contains ${poke.species.id}`);
+				console.log(`replacing set of saved ${poke.species.id}`);
 				// replace unrevealed items, abilities, moves of revealed pkmn
-				const newSet = newTeam.find(set => set.species === poke.species.name);
+				// find a match with the same baseSpecies
+				const newSet = newTeam.find(set => getBaseSpecies(set.species) === poke.species.baseSpecies);
+				// replaceSet does not modify forme
 				poke.replaceSet(newSet as PokemonSet);
 			}
 			else {
-				while (savedSpecies.includes(toID(newTeam[j].species))) j++;
-				console.log(`new ${newTeam[j].species} will replace ${poke.species.id}`)
+				// new mons with saved baseSpecies will be taken care of 
+				while (savedBaseSpecies.includes(getBaseSpecies(newTeam[j].species))) j++;
+				console.log(`new ${newTeam[j].species} will replace ${poke.species.name}`);
 				// replace unrevealed pkmn
 				side.pokemon[i] = new Pokemon(newTeam[j], side);
 				side.pokemon[i].position = i;
