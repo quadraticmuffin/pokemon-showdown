@@ -389,7 +389,7 @@ export class Battle {
 		console.log(`saved mons: [${savedSpecies}]`);
 		for (const [i, poke] of side.pokemon.entries()) {
 			// if baseSpecies is saved, just replace the set
-			if (savedSpecies.includes(poke.species.id)) {
+			if (savedBaseSpecies.includes(poke.species.baseSpecies)) {
 				console.log(`replacing set of saved ${poke.species.id}`);
 				// replace unrevealed items, abilities, moves of revealed pkmn
 				// find a match with the same baseSpecies

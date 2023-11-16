@@ -901,7 +901,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const oldAbility = criteria.ability ? toID(criteria.ability) : undefined;
 		const oldMoves = criteria.moves.map(toID);
 		for (let i = 0; i < attempts; i++) {
-			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, isLead);
+			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, isLead, i === attempts-1);
 			const setHasMove = (oldMove: ID) => {
 				return newSet.moves.map((newMove) => {
 					const newMoveId = toID(newMove);
@@ -936,7 +936,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	randomConstrainedSetInner(
 		criteria: SetCriteria,
 		teamDetails: RandomTeamsTypes.TeamDetails = {},
-		isLead = false
+		isLead = false,
+		force = false,
 	) {
 		console.log(`\nCHOOSING SET FOR ${criteria.species}`);
 		const species = this.dex.species.get(criteria.species);
@@ -968,12 +969,15 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// for (const setMoveid of movePool) {
 		// 	if (setMoveid.startsWith('hiddenpower')) availableHP++;
 		// }
-		const hpTypeIdxPool: number[] = [];
 		for (let i = movePool.length-1; i >= 0; i--) {
 			// remove locked moves from the movePool
 			if (lockedMoves.has(movePool[i])) this.fastPop(movePool, i);
+		}
+
+		const hpTypeIdxPool: number[] = [];
+		for (let i = movePool.length-1; i >= 0; i--) {
 			// count hiddenpowers and track their indices
-			else if (movePool[i].startsWith('hiddenpower')) {
+			if (movePool[i].startsWith('hiddenpower')) {
 				availableHP++;
 				hpTypeIdxPool.push(i);
 			}
@@ -1220,14 +1224,18 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// 	continue;
 		// }
 		// if (ability !== 'Foreward' && species.id === 'jynx') continue;
-		ability = this.getAbility(types, moves, abilities, counter, movePool, teamDetails, species);
+		if (force && criteria.ability) ability = criteria.ability;
+		else ability = this.getAbility(types, moves, abilities, counter, movePool, teamDetails, species);
 		// but accept the possibility of an out-of-distribution ability.
 
 		// restart if item would be culled?
-		item = this.getHighPriorityItem(ability, types, moves, counter, teamDetails, species, isLead);
-		if (item === undefined) item = this.getMediumPriorityItem(ability, moves, counter, species, isLead);
-		if (item === undefined) {
-			item = this.getLowPriorityItem(ability, types, moves, abilities, counter, teamDetails, species);
+		if (force && criteria.item) item = criteria.item;
+		else {
+			item = this.getHighPriorityItem(ability, types, moves, counter, teamDetails, species, isLead);
+			if (item === undefined) item = this.getMediumPriorityItem(ability, moves, counter, species, isLead);
+			if (item === undefined) {
+				item = this.getLowPriorityItem(ability, types, moves, abilities, counter, teamDetails, species);
+			}
 		}
 
 		// For Trick / Switcheroo
