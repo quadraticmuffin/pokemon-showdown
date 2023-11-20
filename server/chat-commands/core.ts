@@ -703,7 +703,12 @@ export const commands: Chat.ChatCommands = {
 
 	save(target, room, user) {
 		room = this.requireRoom();
-		room.battle!.save(target);
+		const battle = room.battle;
+		if (!battle) {
+			return this.errorReply(this.tr`This command only works in battle rooms.`);
+		}
+		const player = battle.playerTable[user.id];
+		room.battle!.save(player.slot);
 	},
 
 	load(target, room, user) {

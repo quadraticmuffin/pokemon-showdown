@@ -226,38 +226,42 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		case 'version-origin':
 			break;
 		case 'save':
-			this.checkpoint = JSON.stringify(this.battle!.toJSON());
-			if (message){
-				console.log(`message from save is ${message}`);
-				const parsed_sets = JSON.parse(message);
-				this.checkpointSets = [];
-				for (const set of parsed_sets) {
-					const criteria: SetCriteria = {
-						species: set.species,
-						moves: set.moves,
-						isLead: set.isLead,
-					};
-					if (set.item !== 'unknown') {
-						criteria.item = set.item;
-					}
-					if (set.ability !== 'unknown') {
-						criteria.ability = set.ability;
-					}
-					this.checkpointSets.push(criteria);
-				}
-				console.log(`parsed sets:`);
-				for (const set of this.checkpointSets) {
-					console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
-				}
-			}
-			// console.log(this.checkpoint);
-			// this.battle!.add(``, `Saved to checkpoint`)
+			// get which side it came from
+			// get the toJSON from battle
+			// have battle call send to bring it back upp to the stream as a sideupdate
+			this.battle!.emitState(message as SideID);
 			break;
 		case 'load':
-			if (!this.checkpoint) throw new Error(`Can't load without first saving`);
+			const split_target = message.split('|~|');
+			console.log(`got sideid from load: ${split_target[0]}`);
+			console.log(`got sets from load: ${split_target[1]}`);
+			console.log(`got state from load: ${split_target[2]}`);
+			const sideid = split_target[0];
+			const parsedSets = JSON.parse(split_target[1]);
+			const jsonState = split_target[2];
+			const checkpointSets: SetCriteria[] = [];
+			for (const set of parsedSets) {
+				const criteria: SetCriteria = {
+					species: set.species,
+					moves: set.moves,
+					isLead: set.isLead,
+				};
+				if (set.item !== 'unknown') {
+					criteria.item = set.item;
+				}
+				if (set.ability !== 'unknown') {
+					criteria.ability = set.ability;
+				}
+				checkpointSets.push(criteria);
+			}
+			console.log(`parsed sets:`);
+			for (const set of checkpointSets) {
+				console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
+			}
+			// if (!this.checkpoint) throw new Error(`Can't load without first saving`);
 			const send = this.battle!.send;
 			// console.log(this.checkpoint);
-			this.battle = Battle.fromJSON(this.checkpoint);
+			this.battle = Battle.fromJSON(jsonState);
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
 			console.log('loaded');
@@ -269,7 +273,6 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 				break;
 			}
 		// if no keepseed, reseed the PRNG.
-		case 'reseed':
 			this.battle!.resetRNG(null);
 			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
 			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
@@ -280,8 +283,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			}
 		// if (no keepseed and no keepteam), reroll the team.
 		// in this case the message must be a sideID ('p1', 'p2')
-		case 'rerollteam':
-			this.battle!.rerollTeam(message as SideID, this.checkpointSets);
+			this.battle!.rerollTeam(sideid as SideID, checkpointSets);
 			this.battle!.makeRequest();
 			break;
 		default:

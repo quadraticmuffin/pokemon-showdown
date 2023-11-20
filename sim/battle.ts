@@ -323,6 +323,12 @@ export class Battle {
 		return State.serializeBattle(this);
 	}
 
+	emitState(sideid: SideID) {
+		const toSend = JSON.stringify(this.toJSON())
+		console.log(`about to send state ${toSend}`);
+		this.send('sideupdate', `${sideid}\n|state|${toSend}`);
+	}
+
 	static fromJSON(serialized: string | AnyObject): Battle {
 		return State.deserializeBattle(serialized);
 	}
@@ -368,6 +374,7 @@ export class Battle {
 	rerollTeam(sideid: SideID, checkpointSets: SetCriteria[]) {
 		const getBaseSpecies = (s: string) => this.dex.species.get(s).baseSpecies;
 		if (checkpointSets.length === 0) {
+			console.log(`detected checkpointSets of length 0:\n${checkpointSets}`)
 			throw new Error(`shouldn't be rerolling a team without saving first`);
 			// probably just need to pass checkpointSets 
 			// into randomTeamFromPartial

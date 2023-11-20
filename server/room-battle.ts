@@ -56,7 +56,6 @@ export class RoomBattlePlayer extends RoomGames.RoomGamePlayer<RoomBattle> {
 	readonly slot: SideID;
 	readonly channelIndex: ChannelIndex;
 	request: BattleRequestTracker;
-	savedRequest: BattleRequestTracker;
 	wantsTie: boolean;
 	wantsOpenTeamSheets: boolean | null;
 	active: boolean;
@@ -112,7 +111,6 @@ export class RoomBattlePlayer extends RoomGames.RoomGamePlayer<RoomBattle> {
 		this.channelIndex = (game.gameType === 'multi' && num > 2 ? num - 2 : num) as ChannelIndex;
 
 		this.request = {rqid: 0, request: '', isWait: 'cantUndo', choice: ''};
-		this.savedRequest = {rqid: 0, request: '', isWait: 'cantUndo', choice: ''};
 		this.wantsTie = false;
 		this.wantsOpenTeamSheets = null;
 		this.active = true;
@@ -1345,44 +1343,47 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	save(target: string) {
 		void this.stream.write(`>save ${target}`);
 		console.log(`SAVING`)
+		const requests: { [key: string]: BattleRequestTracker} = {};
 		for (const player of this.players) {
 			const req = player.request;
 			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			// shallow copy the request status
-			player.savedRequest = { ...player.request };
-			player.savedRequest.choice = '';
-			if (req.isWait !== 'cantUndo') {
-				// send player their rqid if expecting response from them after load
-				player.sendRoom(`|save|${req.rqid}`);
-			}
-			else {
-				player.sendRoom(`|save|none`)
-			}
+			requests[player.slot] = { ...player.request };
+			requests[player.slot].choice = '';
+		}
+		for (const player of this.players) {
+			if (player.slot === target as SideID) player.sendRoom(`|save|${JSON.stringify(requests)}`);
 		}
 		console.log(`battle rqid: ${this.rqid}\n`);
 	}
 	load(target: string, user: User) {
-		if (['keepseed', 'keepteam'].includes(target)) {
-			console.log(`roombattle: writing '>load ${target}' to stream`);
-			void this.stream.write(`>load ${target}`);
+		const split_target = target.split('|-|');
+		const rest = split_target[0];
+		const requests = split_target[1];
+		
+		if (['keepseed', 'keepteam'].includes(rest)) {
+			console.log(`roombattle: writing '>load ${rest}' to stream`);
+			void this.stream.write(`>load ${rest}`);
 		}
 		else {
 			let foundPlayer = false;
 			for (const player of this.players) {
 				const slot = player.slot;
 				if (player.id !== user.id) {
+					// reroll the side that didn't send the load
 					console.log(`roombattle: writing '>load ${slot}' to stream`);
-					void this.stream.write(`>load ${slot}`);
+					void this.stream.write(`>load ${slot}|~|${rest}`);
 					foundPlayer = true;
 				}
 			}
-			if (!foundPlayer) throw new Error(`/load ${target} not valid, or ${user} not found in battle`);
+			if (!foundPlayer) throw new Error(`/load ${rest} not valid, or ${user} not found in battle`);
 		}
 		console.log(`LOADING`)
+		const parsed_requests: {[key: string]: BattleRequestTracker} = JSON.parse(requests);
 		let rqid = 0;
 		let active_reqs = 0;
 		for (const player of this.players) {
-			player.request = { ...player.savedRequest };
+			player.request = { ...parsed_requests[player.slot] };
 			const req = player.request;
 			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			rqid = Math.max(player.request.rqid, rqid);
