@@ -319,13 +319,18 @@ export class Battle {
 		}
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	toJSON(): AnyObject {
 		return State.serializeBattle(this);
 	}
 
 	emitState(sideid: SideID) {
 		const toSend = JSON.stringify(this.toJSON())
-		console.log(`about to send state ${toSend}`);
+		this.consoleLog(`about to send state ${toSend}`);
 		this.send('sideupdate', `${sideid}\n|state|${toSend}`);
 	}
 
@@ -374,7 +379,7 @@ export class Battle {
 	rerollTeam(sideid: SideID, checkpointSets: SetCriteria[]) {
 		const getBaseSpecies = (s: string) => this.dex.species.get(s).baseSpecies;
 		if (checkpointSets.length === 0) {
-			console.log(`detected checkpointSets of length 0:\n${checkpointSets}`)
+			this.consoleLog(`detected checkpointSets of length 0:\n${checkpointSets}`)
 			throw new Error(`shouldn't be rerolling a team without saving first`);
 			// probably just need to pass checkpointSets 
 			// into randomTeamFromPartial
@@ -390,14 +395,14 @@ export class Battle {
 		const savedBaseSpecies = savedSpecies.map(getBaseSpecies);
 		const oldSpecies = side.team.map(set => set.species);
 		const newSpecies = newTeam.map(set => set.species);
-		console.log(`${oldSpecies} -> ${newSpecies}`);
+		this.consoleLog(`${oldSpecies} -> ${newSpecies}`);
 
 		let j = 0; // j iterates over new team, i over actual pokemon
-		console.log(`saved mons: [${savedSpecies}]`);
+		this.consoleLog(`saved mons: [${savedSpecies}]`);
 		for (const [i, poke] of side.pokemon.entries()) {
 			// if baseSpecies is saved, just replace the set
 			if (savedBaseSpecies.includes(poke.species.baseSpecies)) {
-				console.log(`replacing set of saved ${poke.species.id}`);
+				this.consoleLog(`replacing set of saved ${poke.species.id}`);
 				// replace unrevealed items, abilities, moves of revealed pkmn
 				// find a match with the same baseSpecies
 				const newSet = newTeam.find(set => getBaseSpecies(set.species) === poke.species.baseSpecies);
@@ -407,7 +412,7 @@ export class Battle {
 			else {
 				// new mons with saved baseSpecies will be taken care of 
 				while (savedBaseSpecies.includes(getBaseSpecies(newTeam[j].species))) j++;
-				console.log(`new ${newTeam[j].species} will replace ${poke.species.name}`);
+				this.consoleLog(`new ${newTeam[j].species} will replace ${poke.species.name}`);
 				// replace unrevealed pkmn
 				side.pokemon[i] = new Pokemon(newTeam[j], side);
 				side.pokemon[i].position = i;
@@ -416,7 +421,7 @@ export class Battle {
 		}
 		// do the same for team instead of pokemon
 		side.team = side.pokemon.map(p => p.set);
-		console.log(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
+		this.consoleLog(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
 	}
 
 	suppressingAbility(target?: Pokemon) {
@@ -801,7 +806,7 @@ export class Battle {
 		}
 		let hasRelayVar = 1;
 		const args = [target, source, sourceEffect];
-		// console.log('Event: ' + eventid + ' (depth ' + this.eventDepth + ') t:' + target.id + ' s:' + (!source || source.id) + ' e:' + effect.id);
+		// this.consoleLog('Event: ' + eventid + ' (depth ' + this.eventDepth + ') t:' + target.id + ' s:' + (!source || source.id) + ' e:' + effect.id);
 		if (relayVar === undefined || relayVar === null) {
 			relayVar = true;
 			hasRelayVar = 0;
@@ -966,7 +971,7 @@ export class Battle {
 		let handlers: EventListener[] = [];
 		if (Array.isArray(target)) {
 			for (const [i, pokemon] of target.entries()) {
-				// console.log(`Event: ${eventName}, Target: ${'' + pokemon}, ${i}`);
+				// this.consoleLog(`Event: ${eventName}, Target: ${'' + pokemon}, ${i}`);
 				const curHandlers = this.findEventHandlers(pokemon, eventName, source);
 				for (const handler of curHandlers) {
 					handler.target = pokemon; // Original "effectHolder"

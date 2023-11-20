@@ -475,6 +475,11 @@ export class Pokemon {
 		this.hp = this.maxhp;
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	toJSON(): AnyObject {
 		return State.serializePokemon(this);
 	}
@@ -1835,8 +1840,8 @@ export class Pokemon {
 	}
 
 	replaceSet(newSet: PokemonSet) {
-		console.log(`OLD species: ${this.set.species} | item: ${this.set.item} | ability: ${this.set.ability} | moves: [${this.set.moves}]`);
-		console.log(`NEW species: ${newSet.species} | item: ${newSet.item} | ability: ${newSet.ability} | moves: [${newSet.moves}]`);
+		this.consoleLog(`OLD species: ${this.set.species} | item: ${this.set.item} | ability: ${this.set.ability} | moves: [${this.set.moves}]`);
+		this.consoleLog(`NEW species: ${newSet.species} | item: ${newSet.item} | ability: ${newSet.ability} | moves: [${newSet.moves}]`);
 
 		this.setItem(newSet.item);
 		this.set.item = newSet.item;
@@ -1847,11 +1852,11 @@ export class Pokemon {
 		for (const moveid of newSet.moves) {
 			let move = this.battle.dex.moves.get(moveid);
 			if (!move.id) {
-				console.log(`move ${move} has no id`);
+				this.consoleLog(`move ${move} has no id`);
 				throw new Error()
 			}
 			if (this.moves.includes(move.id)) {
-				console.log(`already has ${moveid}`);
+				this.consoleLog(`already has ${moveid}`);
 				// const oldMove = this.moveSlots.find(m => m.id === moveid);
 				// baseMoveSlots.push(oldMove!);
 				continue;
@@ -1877,7 +1882,7 @@ export class Pokemon {
 		}
 		this.moveSlots = this.baseMoveSlots.slice();
 		for (let i = 0; i < this.moves.length; i++) this.set.moves[i] = this.moves[i];
-		console.log(`FINAL species: ${this.species} | item: ${this.item} | ability: ${this.ability} | moves: [${this.moves}]`);
+		this.consoleLog(`FINAL species: ${this.species} | item: ${this.item} | ability: ${this.ability} | moves: [${this.moves}]`);
 	}
 
 	addVolatile(

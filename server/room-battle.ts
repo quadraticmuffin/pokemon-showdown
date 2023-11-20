@@ -971,7 +971,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 
 		await FS(logpath).mkdirp();
 		await FS(`${logpath}${this.room.getReplayData().id}.log.json`).write(JSON.stringify(logData));
-		// console.log(JSON.stringify(logData));
+		// this.consoleLog(JSON.stringify(logData));
 	}
 	onConnect(user: User, connection: Connection | null = null) {
 		// this handles joining a battle in which a user is a participant,
@@ -1340,13 +1340,18 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		return result;
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	save(target: string) {
 		void this.stream.write(`>save ${target}`);
-		console.log(`SAVING`)
+		this.consoleLog(`SAVING`)
 		const requests: { [key: string]: BattleRequestTracker} = {};
 		for (const player of this.players) {
 			const req = player.request;
-			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
+			this.consoleLog(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			// shallow copy the request status
 			requests[player.slot] = { ...player.request };
 			requests[player.slot].choice = '';
@@ -1354,7 +1359,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		for (const player of this.players) {
 			if (player.slot === target as SideID) player.sendRoom(`|save|${JSON.stringify(requests)}`);
 		}
-		console.log(`battle rqid: ${this.rqid}\n`);
+		this.consoleLog(`battle rqid: ${this.rqid}\n`);
 	}
 	load(target: string, user: User) {
 		const split_target = target.split('|-|');
@@ -1362,7 +1367,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		const requests = split_target[1];
 		
 		if (['keepseed', 'keepteam'].includes(rest)) {
-			console.log(`roombattle: writing '>load ${rest}' to stream`);
+			this.consoleLog(`roombattle: writing '>load ${rest}' to stream`);
 			void this.stream.write(`>load ${rest}`);
 		}
 		else {
@@ -1371,21 +1376,21 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 				const slot = player.slot;
 				if (player.id !== user.id) {
 					// reroll the side that didn't send the load
-					console.log(`roombattle: writing '>load ${slot}' to stream`);
+					this.consoleLog(`roombattle: writing '>load ${slot}' to stream`);
 					void this.stream.write(`>load ${slot}|~|${rest}`);
 					foundPlayer = true;
 				}
 			}
 			if (!foundPlayer) throw new Error(`/load ${rest} not valid, or ${user} not found in battle`);
 		}
-		console.log(`LOADING`)
+		this.consoleLog(`LOADING`)
 		const parsed_requests: {[key: string]: BattleRequestTracker} = JSON.parse(requests);
 		let rqid = 0;
 		let active_reqs = 0;
 		for (const player of this.players) {
 			player.request = { ...parsed_requests[player.slot] };
 			const req = player.request;
-			console.log(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
+			this.consoleLog(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
 			rqid = Math.max(player.request.rqid, rqid);
 			if (req.isWait !== 'cantUndo') {
 				// send player their rqid if expecting response from them after load
@@ -1400,8 +1405,8 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		// but new requests will be sent so we subtract
 		// same rqid for same turn
 		this.rqid = rqid - active_reqs;
-		console.log(`decremented rqid to ${this.rqid}`);
-		console.log(`battle rqid: ${this.rqid}\n`);
+		this.consoleLog(`decremented rqid to ${this.rqid}`);
+		this.consoleLog(`battle rqid: ${this.rqid}\n`);
 	}
 }
 

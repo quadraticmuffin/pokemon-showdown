@@ -64,6 +64,11 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			wish: movePool => movePool.includes('protect'),
 		};
 	}
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	shouldCullMove(
 		move: Move,
 		types: Set<string>,
@@ -910,26 +915,26 @@ export class RandomGen4Teams extends RandomGen5Teams {
 					return newMoveId;
 				}).includes(oldMove);
 			};
-			console.log(`\nCHECKING SET | species: ${newSet.species} | ability: ${newSet.ability} | item: ${newSet.item} | moves: ${newSet.moves}`)
+			this.consoleLog(`\nCHECKING SET | species: ${newSet.species} | ability: ${newSet.ability} | item: ${newSet.item} | moves: ${newSet.moves}`)
 			if (oldItem && oldItem !== toID(newSet.item)) {
-				console.log(`item ${newSet.item} doesn't match criterion ${oldItem}. rerolling...`);
+				this.consoleLog(`item ${newSet.item} doesn't match criterion ${oldItem}. rerolling...`);
 				continue;
 			}
-			console.log(`passed item ${oldItem}`)
+			this.consoleLog(`passed item ${oldItem}`)
 			if (oldAbility && oldAbility !== toID(newSet.ability)) {
-				console.log(`ability ${newSet.ability} doesn't match criterion ${oldAbility}. rerolling...`);
+				this.consoleLog(`ability ${newSet.ability} doesn't match criterion ${oldAbility}. rerolling...`);
 				continue;
 			}
-			console.log(`passed ability ${oldAbility}`)
+			this.consoleLog(`passed ability ${oldAbility}`)
 			if (!oldMoves.every(setHasMove)) {
-				console.log(`moveset ${newSet.moves} doesn't match criteria ${oldMoves}. rerolling...`);
+				this.consoleLog(`moveset ${newSet.moves} doesn't match criteria ${oldMoves}. rerolling...`);
 				continue;
 			}
-			console.log(`passed moves [${oldMoves}]`)
+			this.consoleLog(`passed moves [${oldMoves}]`)
 			return newSet;
 		}
-		console.log(`tried ${attempts} times but couldn't make set satisfying constraints:`);
-		console.log(`species: ${criteria.species} | ability: ${criteria.ability} | item: ${criteria.item} | moves: ${criteria.moves}`)
+		this.consoleLog(`tried ${attempts} times but couldn't make set satisfying constraints:`);
+		this.consoleLog(`species: ${criteria.species} | ability: ${criteria.ability} | item: ${criteria.item} | moves: ${criteria.moves}`)
 		throw new Error();
 	}
 
@@ -939,7 +944,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		isLead = false,
 		force = false,
 	) {
-		console.log(`\nCHOOSING SET FOR ${criteria.species}`);
+		this.consoleLog(`\nCHOOSING SET FOR ${criteria.species}`);
 		const species = this.dex.species.get(criteria.species);
 		let forme = species.name;
 
@@ -986,8 +991,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		let counter: MoveCounter;
 		let hasHiddenPower = criteria.moves.some(moveid => moveid.startsWith('hiddenpower'));
 		// TODO change once we can infer hidden power type
-		console.log(`locked moves: ${criteria.moves}`);
-		console.log(`locked moves have hiddenpower: ${hasHiddenPower}`);
+		this.consoleLog(`locked moves: ${criteria.moves}`);
+		this.consoleLog(`locked moves have hiddenpower: ${hasHiddenPower}`);
 		if (hasHiddenPower) {
 			// sample a possible type for hiddenpower 
 			// (we don't know the type of hp since criteria comes from opponent)
@@ -996,16 +1001,16 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			const newHp = movePool[newHpIdx];
 			lockedMoves.add(movePool[newHpIdx]);
 			this.fastPop(movePool, newHpIdx)
-			console.log(`replaced hiddenpower with ${newHp}`);
+			this.consoleLog(`replaced hiddenpower with ${newHp}`);
 		}
 
 		moves = new Set([...lockedMoves]);
 		hasHiddenPower = criteria.moves.some(moveid => moveid.startsWith('hiddenpower'));
 		do {
 			// reset moves to the criteria, instead of starting from empty
-			console.log(`movePool: ${movePool}`);
-			// console.log(`movePool->move->.id: ${movePool.map(el=>this.dex.moves.get(el).id)}`);
-			console.log(`rejectedPool: ${rejectedPool}`);
+			this.consoleLog(`movePool: ${movePool}`);
+			// this.consoleLog(`movePool->move->.id: ${movePool.map(el=>this.dex.moves.get(el).id)}`);
+			this.consoleLog(`rejectedPool: ${rejectedPool}`);
 			// Choose next 4 moves from learnset/viable moves and add them to moves list:
 			while (moves.size < this.maxMoveCount && movePool.length) {
 				const moveid = this.sampleNoReplace(movePool);
@@ -1205,7 +1210,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (!hpType) {
 				for (const move of moves) {
-					console.log(move);
+					this.consoleLog(move);
 				}
 				throw new Error(`hasHiddenPower is true, but no Hidden Power move was found in the above set`);
 			}

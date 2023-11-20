@@ -61,6 +61,11 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		this.checkpointSets = [];
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	_write(chunk: string) {
 		if (this.noCatch) {
 			this._writeLines(chunk);
@@ -233,9 +238,9 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			break;
 		case 'load':
 			const split_target = message.split('|~|');
-			console.log(`got sideid from load: ${split_target[0]}`);
-			console.log(`got sets from load: ${split_target[1]}`);
-			console.log(`got state from load: ${split_target[2]}`);
+			this.consoleLog(`got sideid from load: ${split_target[0]}`);
+			this.consoleLog(`got sets from load: ${split_target[1]}`);
+			this.consoleLog(`got state from load: ${split_target[2]}`);
 			const sideid = split_target[0];
 			const parsedSets = JSON.parse(split_target[1]);
 			const jsonState = split_target[2];
@@ -254,17 +259,17 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 				}
 				checkpointSets.push(criteria);
 			}
-			console.log(`parsed sets:`);
+			this.consoleLog(`parsed sets:`);
 			for (const set of checkpointSets) {
-				console.log(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
+				this.consoleLog(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
 			}
 			// if (!this.checkpoint) throw new Error(`Can't load without first saving`);
 			const send = this.battle!.send;
-			// console.log(this.checkpoint);
+			// this.consoleLog(this.checkpoint);
 			this.battle = Battle.fromJSON(jsonState);
 			this.battle.restart(send);
 			// this.battle.add(``,`Loaded from checkpoint`);
-			console.log('loaded');
+			this.consoleLog('loaded');
 			for (const side of this.battle!.sides) {
 				this.battle!.undoChoice(side.id);
 			}
@@ -276,7 +281,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			this.battle!.resetRNG(null);
 			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
 			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
-			console.log('reseeded');
+			this.consoleLog('reseeded');
 			if (message === `keepteam`) {
 				this.battle!.makeRequest();
 				break;
