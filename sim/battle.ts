@@ -389,8 +389,9 @@ export class Battle {
 		// .species.baseSpecies instead of just .baseSpecies
 		// because revealedBaseSpecies should be a string[], not a Species[]
 		this.teamGenerator = Teams.getGenerator(this.format, this.prng.seed);
-		const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, side.team.length);
-
+		const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, 6);
+		// const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, Math.min(6, side.team.length+1));
+		
 		const savedSpecies = checkpointSets.map(set => toID(set.species));
 		const savedBaseSpecies = savedSpecies.map(getBaseSpecies);
 		const oldSpecies = side.team.map(set => set.species);
@@ -419,7 +420,20 @@ export class Battle {
 				j++;
 			}
 		}
+		let last_idx = side.pokemon.length;
+		while (last_idx < newTeam.length) {
+			while (savedBaseSpecies.includes(getBaseSpecies(newTeam[j].species))) j++;
+			side.pokemon.push(new Pokemon(newTeam[j], side))
+			j++;
+			side.pokemon[last_idx].position = last_idx;
+			last_idx++;
+		}
 		// do the same for team instead of pokemon
+
+		side.pokemonLeft = 0 // newly hallucinated pokemon will not be fainted
+		for (const p of side.pokemon) {
+			side.pokemonLeft += Number(!p.fainted)
+		}
 		side.team = side.pokemon.map(p => p.set);
 		this.consoleLog(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
 	}

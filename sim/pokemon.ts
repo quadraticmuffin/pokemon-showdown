@@ -1867,8 +1867,8 @@ export class Pokemon {
 			}
 			let basepp = (move.noPPBoosts || move.isZ) ? move.pp : move.pp * 8 / 5;
 			if (this.battle.gen < 3) basepp = Math.min(61, basepp);
-			while (newMoveIDs.includes(this.baseMoveSlots[bmsIdx].id)) bmsIdx++;
-			this.baseMoveSlots[bmsIdx] = {
+			while (bmsIdx < this.baseMoveSlots.length && newMoveIDs.includes(this.baseMoveSlots[bmsIdx].id)) bmsIdx++;
+			const newMove = {
 				move: move.name,
 				id: move.id,
 				pp: basepp,
@@ -1878,6 +1878,8 @@ export class Pokemon {
 				disabledSource: '',
 				used: false,
 			};
+			if (!this.baseMoveSlots[bmsIdx]) this.baseMoveSlots.push(newMove);
+			else this.baseMoveSlots[bmsIdx] = newMove
 			bmsIdx++;
 		}
 		this.moveSlots = this.baseMoveSlots.slice();
