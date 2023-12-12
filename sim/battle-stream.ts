@@ -273,19 +273,11 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			for (const side of this.battle!.sides) {
 				this.battle!.undoChoice(side.id);
 			}
-			if (message === 'keepseed') {
-				this.battle!.makeRequest();
-				break;
-			}
 		// if no keepseed, reseed the PRNG.
 			this.battle!.resetRNG(null);
 			// could go inside resetRNG, but this makes using it in `eval` slightly less buggy
 			this.battle!.inputLog.push(`>reseed ${this.battle!.prng.seed.join(',')}`);
 			this.consoleLog('reseeded');
-			if (message === `keepteam`) {
-				this.battle!.makeRequest();
-				break;
-			}
 		// if (no keepseed and no keepteam), reroll the team.
 		// in this case the message must be a sideID ('p1', 'p2')
 			this.battle!.rerollTeam(sideid as SideID, checkpointSets);

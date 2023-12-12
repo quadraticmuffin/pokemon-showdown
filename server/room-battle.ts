@@ -1364,49 +1364,74 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	load(target: string, user: User) {
 		const split_target = target.split('|-|');
 		const rest = split_target[0];
-		const requests = split_target[1];
-		
-		if (['keepseed', 'keepteam'].includes(rest)) {
-			this.consoleLog(`roombattle: writing '>load ${rest}' to stream`);
-			void this.stream.write(`>load ${rest}`);
-		}
-		else {
-			let foundPlayer = false;
-			for (const player of this.players) {
-				const slot = player.slot;
-				if (player.id !== user.id) {
-					// reroll the side that didn't send the load
-					this.consoleLog(`roombattle: writing '>load ${slot}' to stream`);
-					void this.stream.write(`>load ${slot}|~|${rest}`);
-					foundPlayer = true;
-				}
-			}
-			if (!foundPlayer) throw new Error(`/load ${rest} not valid, or ${user} not found in battle`);
-		}
-		this.consoleLog(`LOADING`)
-		const parsed_requests: {[key: string]: BattleRequestTracker} = JSON.parse(requests);
-		let rqid = 0;
+		const requests = split_target[1].split('|~|');
+
+		// track rqid
+		let y = 0;
+		let max_rqid = 0;
 		let active_reqs = 0;
-		for (const player of this.players) {
-			player.request = { ...parsed_requests[player.slot] };
-			const req = player.request;
-			this.consoleLog(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
-			rqid = Math.max(player.request.rqid, rqid);
-			if (req.isWait !== 'cantUndo') {
-				// send player their rqid if expecting response from them after load
-				player.sendRoom(`|load|${req.rqid}`);
+		for (const player of this.players){
+			player.sendRoom(`|load|${requests[y]}`);
+			if (requests[y] !== 'none') {
 				active_reqs++;
+				max_rqid = Math.max(parseInt(requests[y]), max_rqid);
 			}
-			else {
-				player.sendRoom(`|load|none`)
-			}
+			y++;
 		}
 		// overall this.rqid gets reset to max of players
 		// but new requests will be sent so we subtract
 		// same rqid for same turn
-		this.rqid = rqid - active_reqs;
+		this.rqid = max_rqid - active_reqs;
 		this.consoleLog(`decremented rqid to ${this.rqid}`);
 		this.consoleLog(`battle rqid: ${this.rqid}\n`);
+
+		// propagate load to battle stream
+		let foundPlayer = false;
+		for (const player of this.players) {
+			const slot = player.slot;
+			if (player.id !== user.id) {
+				// reroll the side that didn't send the load
+				this.consoleLog(`roombattle: writing '>load ${slot}' to stream`);
+				void this.stream.write(`>load ${slot}|~|${rest}`);
+				foundPlayer = true;
+			}
+		}
+		if (!foundPlayer) throw new Error(`/load ${rest} not valid, or ${user} not found in battle`);
+		this.consoleLog(`LOADING`)
+		// const parsed_requests: {[key: string]: BattleRequestTracker} = JSON.parse(requests);
+		// let max_rqid = 0;
+		// let active_reqs = 0;
+		// for (const player of this.players) {
+		// 	player.request = { ...parsed_requests[player.slot] };
+		// 	const req = player.request;
+		// 	this.consoleLog(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
+		// 	max_rqid = Math.max(player.request.rqid, max_rqid);
+		// 	if (req.isWait !== 'cantUndo') {
+		// 		// send player their rqid if expecting response from them after load
+		// 		player.sendRoom(`|load|${req.rqid}`);
+		// 		active_reqs++;
+		// 	}
+		// 	else {
+		// 		player.sendRoom(`|load|none`)
+		// 	}
+		// }
+
+		// let y = 0;
+		// let max_rqid = 0;
+		// let active_reqs = 0;
+		// for (const player of this.players){
+		// 	console.log(`${y}: ${requests[y]}`)
+		// 	player.sendRoom(`|load|${requests[y]}`);
+		// 	y++;
+		// 	if (requests[y] !== 'none') active_reqs++;
+		// 	else max_rqid = Math.max(parseInt(requests[y]), max_rqid)
+		// }
+		// // overall this.rqid gets reset to max of players
+		// // but new requests will be sent so we subtract
+		// // same rqid for same turn
+		// this.rqid = max_rqid - active_reqs;
+		// this.consoleLog(`decremented rqid to ${this.rqid}`);
+		// this.consoleLog(`battle rqid: ${this.rqid}\n`);
 	}
 }
 
