@@ -251,10 +251,10 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 					moves: set.moves,
 					isLead: set.isLead,
 				};
-				if (set.item !== 'unknown') {
+				if (set.item) {
 					criteria.item = set.item;
 				}
-				if (set.ability !== 'unknown') {
+				if (set.ability) {
 					criteria.ability = set.ability;
 				}
 				checkpointSets.push(criteria);
