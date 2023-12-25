@@ -906,6 +906,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const oldAbility = criteria.ability ? toID(criteria.ability) : undefined;
 		const oldMoves = criteria.moves.map(toID);
 		for (let i = 0; i < attempts; i++) {
+			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${isLead}`);
 			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, isLead, i === attempts-1);
 			const setHasMove = (oldMove: ID) => {
 				return newSet.moves.map((newMove) => {
