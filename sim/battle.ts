@@ -334,7 +334,7 @@ export class Battle {
 
 	emitState(sideid: SideID) {
 		const toSend = JSON.stringify(this.toJSON())
-		this.consoleLog(`about to send state ${toSend}`);
+		this.consoleLog(`sending state`);
 		this.send('sideupdate', `${sideid}\n|state|${toSend}`);
 	}
 

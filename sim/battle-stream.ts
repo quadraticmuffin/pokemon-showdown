@@ -244,7 +244,6 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			const split_target = message.split('|~|');
 			this.consoleLog(`got sideid from load: ${split_target[0]}`);
 			this.consoleLog(`got sets from load: ${split_target[1]}`);
-			this.consoleLog(`got state from load: ${split_target[2]}`);
 			const sideid = split_target[0];
 			const parsedSets = JSON.parse(split_target[1]);
 			const jsonState = split_target[2];

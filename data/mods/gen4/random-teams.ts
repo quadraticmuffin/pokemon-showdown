@@ -1,5 +1,6 @@
 import RandomGen5Teams from '../gen5/random-teams';
 import {Utils} from '../../../lib';
+import {toID} from '../../../sim/dex';
 import {PRNG} from '../../../sim';
 import {SetCriteria} from '../../../sim/battle';
 import type {MoveCounter} from '../gen8/random-teams';
@@ -1064,7 +1065,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const possibleSets = [];
 		// Check which sets are possible based on criteria moves
 		for (const set of sets) {
-			if (oldMoves.every(m => set.movepool.includes(m))) {
+			const setHasHp = set.movepool.some(m => m.startsWith('hiddenpower'));
+			if (oldMoves.every(m => (m === 'hiddenpower' && setHasHp) || set.movepool.includes(m))) {
 				possibleSets.push(set);
 			}
 		}
@@ -1121,15 +1123,14 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			forme = this.sample([species.name].concat(species.cosmeticFormes));
 		}
 		
-		
 		const set = this.sampleIfArray(possibleSets);
 		const role = set.role;
 		const movePoolWithLockedMoves: string[] = set.movepool;
 		const preferredTypes = set.preferredTypes;
 		const preferredType = this.sampleIfArray(preferredTypes) || '';
 		
-		const lockedMoves = new Set<string>(...criteria.moves);
-		this.consoleLog(`locked moves: ${criteria.moves}`);
+		const lockedMoves = new Set<string>(criteria.moves);
+		this.consoleLog(`locked moves: ${Array.from(lockedMoves)}`);
 		// hallucinate hidden power type
 		let hasHiddenPower = criteria.moves.some(moveid => moveid.startsWith('hiddenpower'));
 		this.consoleLog(`locked moves have hiddenpower: ${hasHiddenPower}`);
