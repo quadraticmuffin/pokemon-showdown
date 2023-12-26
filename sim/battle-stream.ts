@@ -11,7 +11,7 @@
 
 import {Streams, Utils} from '../lib';
 import {Teams} from './teams';
-import {Battle, extractChannelMessages} from './battle';
+import {Battle, extractChannelMessages, SetCriteria} from './battle';
 
 /**
  * Like string.split(delimiter), but only recognizes the first `limit`
@@ -55,6 +55,11 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 		this.replay = options.replay || false;
 		this.keepAlive = !!options.keepAlive;
 		this.battle = null;
+	}
+
+	consoleLog(s: string) {
+		return;
+		console.log(s);
 	}
 
 	_write(chunk: string) {
@@ -229,6 +234,51 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 			break;
 		case 'version':
 		case 'version-origin':
+			break;
+		case 'getstate':
+			// get which side it came from
+			// get the toJSON from battle
+			// have battle call send to bring it back upp to the stream as a sideupdate
+			this.battle!.emitState(message as SideID);
+			break;
+		case 'load':
+			const split_target = message.split('|~|');
+			this.consoleLog(`got sideid from load: ${split_target[0]}`);
+			this.consoleLog(`got sets from load: ${split_target[1]}`);
+			this.consoleLog(`got state from load: ${split_target[2]}`);
+			const sideid = split_target[0];
+			const parsedSets = JSON.parse(split_target[1]);
+			const jsonState = split_target[2];
+			const checkpointSets: SetCriteria[] = [];
+			for (const set of parsedSets) {
+				const criteria: SetCriteria = {
+					species: set.species,
+					moves: set.moves,
+					isLead: set.isLead,
+				};
+				if (set.item) {
+					criteria.item = set.item;
+				}
+				if (set.ability) {
+					criteria.ability = set.ability;
+				}
+				checkpointSets.push(criteria);
+			}
+			this.consoleLog(`parsed sets:`);
+			for (const set of checkpointSets) {
+				this.consoleLog(`species: ${set.species} | item: ${set.item} | ability: ${set.ability} | moves: [${set.moves}] | isLead: ${set.isLead}`);
+			}
+			const send = this.battle!.send;
+			this.battle = Battle.fromJSON(jsonState);
+			this.battle.restart(send);
+			// this.battle.add(``,`Loaded from checkpoint`);
+			this.consoleLog('loaded');
+			for (const side of this.battle!.sides) {
+				this.battle!.undoChoice(side.id);
+			}
+			this.battle!.resetRNG(null);
+			this.battle!.rerollTeam(sideid as SideID, checkpointSets);
+			this.battle!.makeRequest();
 			break;
 		default:
 			throw new Error(`Unrecognized command ">${type} ${message}"`);

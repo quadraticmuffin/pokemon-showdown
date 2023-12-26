@@ -483,6 +483,11 @@ export class Pokemon {
 		this.hp = this.maxhp;
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	toJSON(): AnyObject {
 		return State.serializePokemon(this);
 	}
@@ -1471,6 +1476,54 @@ export class Pokemon {
 		this.volatileStaleness = undefined;
 
 		this.setSpecies(this.baseSpecies);
+	}
+
+	replaceSet(newSet: PokemonSet) {
+		this.consoleLog(`OLD species: ${this.set.species} | item: ${this.set.item} | ability: ${this.set.ability} | moves: [${this.set.moves}]`);
+		this.consoleLog(`NEW species: ${newSet.species} | item: ${newSet.item} | ability: ${newSet.ability} | moves: [${newSet.moves}]`);
+
+		this.setItem(newSet.item);
+		this.set.item = newSet.item;
+		this.setAbility(newSet.ability);
+		this.set.ability = newSet.ability;
+		let bmsIdx = 0; 
+		const newMoveIDs = newSet.moves.map(toID);
+		for (const moveid of newSet.moves) {
+			let move = this.battle.dex.moves.get(moveid);
+			if (!move.id) {
+				this.consoleLog(`move ${move} has no id`);
+				throw new Error()
+			}
+			if (this.moves.includes(move.id)) {
+				this.consoleLog(`already has ${moveid}`);
+				// const oldMove = this.moveSlots.find(m => m.id === moveid);
+				// baseMoveSlots.push(oldMove!);
+				continue;
+			}
+			if (move.id === 'hiddenpower' && move.type !== 'Normal') {
+				this.hpType = move.type;
+				move = this.battle.dex.moves.get('hiddenpower');
+			}
+			let basepp = (move.noPPBoosts || move.isZ) ? move.pp : move.pp * 8 / 5;
+			if (this.battle.gen < 3) basepp = Math.min(61, basepp);
+			while (bmsIdx < this.baseMoveSlots.length && newMoveIDs.includes(this.baseMoveSlots[bmsIdx].id)) bmsIdx++;
+			const newMove = {
+				move: move.name,
+				id: move.id,
+				pp: basepp,
+				maxpp: basepp,
+				target: move.target,
+				disabled: false,
+				disabledSource: '',
+				used: false,
+			};
+			if (!this.baseMoveSlots[bmsIdx]) this.baseMoveSlots.push(newMove);
+			else this.baseMoveSlots[bmsIdx] = newMove
+			bmsIdx++;
+		}
+		this.moveSlots = this.baseMoveSlots.slice();
+		for (let i = 0; i < this.moves.length; i++) this.set.moves[i] = this.moves[i];
+		this.consoleLog(`FINAL species: ${this.species} | item: ${this.item} | ability: ${this.ability} | moves: [${this.moves}]`);
 	}
 
 	hasType(type: string | string[]) {

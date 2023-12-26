@@ -637,6 +637,11 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		this.start();
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	checkActive() {
 		let active = true;
 		if (this.ended || !this.started) {
@@ -671,9 +676,12 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 			return;
 		}
 		const allPlayersWait = this.players.every(p => !!p.request.isWait);
-		if (allPlayersWait || // too late
-			(rqid && rqid !== '' + request.rqid)) { // WAY too late
-			player.sendRoom(`|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started`);
+		if (allPlayersWait){
+			player.sendRoom(`|error|[Invalid choice] Sorry, too late to make a different move; the next turn has already started; allPlayersWait`);
+			return;
+		} // too late
+		else if (rqid && rqid !== '' + request.rqid) { // WAY too late
+			player.sendRoom(`|error|[Invalid choice] Wrong rqid. Server wants ${request.rqid}, player sent ${rqid}`);
 			return;
 		}
 		request.isWait = true;
@@ -699,6 +707,60 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 		request.isWait = false;
 
 		void this.stream.write(`>${player.slot} undo`);
+	}
+	getState(target: string) {
+		void this.stream.write(`>getstate ${target}`);
+		this.consoleLog(`SAVING`)
+		// const requests: { [key: string]: BattleRequestTracker} = {};
+		// for (const player of this.players) {
+		// 	const req = player.request;
+		// 	this.consoleLog(`${player.id}: {rqid: ${req.rqid}, choice: ${req.choice}, isWait: ${req.isWait}}`);
+		// 	// shallow copy the request status
+		// 	requests[player.slot] = { ...player.request };
+		// 	requests[player.slot].choice = '';
+		// }
+		// for (const player of this.players) {
+		// 	if (player.slot === target as SideID) player.sendRoom(`|save|${JSON.stringify(requests)}`);
+		// }
+		// this.consoleLog(`battle rqid: ${this.rqid}\n`);
+	}
+	load(target: string, user: User) {
+		const split_target = target.split('|-|');
+		const rest = split_target[0];
+		const requests = split_target[1].split('|~|');
+
+		// track rqid
+		let y = 0;
+		let max_rqid = 0;
+		let active_reqs = 0;
+		for (const player of this.players){
+			player.sendRoom(`|load|${requests[y]}`);
+			if (requests[y] !== 'none') {
+				active_reqs++;
+				max_rqid = Math.max(parseInt(requests[y]), max_rqid);
+			}
+			y++;
+		}
+		// overall this.rqid gets reset to max of players
+		// but new requests will be sent so we subtract
+		// same rqid for same turn
+		this.rqid = max_rqid - active_reqs;
+		this.consoleLog(`decremented rqid to ${this.rqid}`);
+		this.consoleLog(`battle rqid: ${this.rqid}\n`);
+
+		// propagate load to battle stream
+		let foundPlayer = false;
+		for (const player of this.players) {
+			const slot = player.slot;
+			if (player.id !== user.id) {
+				// reroll the side that didn't send the load
+				this.consoleLog(`roombattle: writing '>load ${slot}' to stream`);
+				void this.stream.write(`>load ${slot}|~|${rest}`);
+				foundPlayer = true;
+			}
+		}
+		if (!foundPlayer) throw new Error(`/load ${rest} not valid, or ${user} not found in battle`);
+		this.consoleLog(`LOADING`)
 	}
 	joinGame(user: User, slot?: SideID, playerOpts?: {team?: string}) {
 		if (this.needsRejoin?.size && !this.needsRejoin.has(user.id)) {
@@ -877,7 +939,6 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 			if (!this.ended) {
 				this.ended = true;
 				void this.onEnd(this.logData!.winner);
-				this.clearPlayers();
 			}
 			this.checkActive();
 			break;
@@ -885,56 +946,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	}
 	async onEnd(winner: any) {
 		this.timer.end();
-		// Declare variables here in case we need them for non-rated battles logging.
-		let p1score = 0.5;
-		const winnerid = toID(winner);
-
-		// Check if the battle was rated to update the ladder, return its response, and log the battle.
-		const p1name = this.p1.name;
-		const p2name = this.p2.name;
-		const p1id = toID(p1name);
-		const p2id = toID(p2name);
-		if (winnerid === p1id) {
-			p1score = 1;
-		} else if (winnerid === p2id) {
-			p1score = 0;
-		}
-		Chat.runHandlers('onBattleEnd', this, winnerid, [p1id, p2id, this.p3?.id, this.p4?.id].filter(Boolean));
-		if (this.room.rated && !this.options.isSubBattle) {
-			this.room.rated = 0;
-			winner = Users.get(winnerid);
-			if (winner && !winner.registered) {
-				this.room.sendUser(winner, '|askreg|' + winner.id);
-			}
-			const [score, p1rating, p2rating] = await Ladders(this.ladder).updateRating(p1name, p2name, p1score, this.room);
-			void this.logBattle(score, p1rating, p2rating);
-			Chat.runHandlers('onBattleRanked', this, winnerid, [p1rating, p2rating], [p1id, p2id]);
-		} else if (Config.logchallenges) {
-			void this.logBattle(p1score);
-		} else if (!this.options.isSubBattle) {
-			this.logData = null;
-		}
-		// If a replay was saved at any point or we were configured to autosavereplays,
-		// reupload when the battle is over to overwrite the partial data (and potentially
-		// reflect any changes that may have been made to the replay's hidden status).
-		if (this.replaySaved || Config.autosavereplays) {
-			const uploader = Users.get(winnerid || p1id);
-			if (uploader?.connections[0]) {
-				const command = Config.autosavereplays === 'private' ? '/savereplay auto' : '/savereplay silent';
-				Chat.parse(command, this.room, uploader, uploader.connections[0]);
-			}
-		}
-		const parentGame = this.room.parent && this.room.parent.game;
-		// @ts-ignore - Tournaments aren't TS'd yet
-		if (parentGame?.onBattleWin) {
-			// @ts-ignore
-			parentGame.onBattleWin(this.room, winnerid);
-		}
-		// If the room's replay was hidden, disable users from joining after the game is over
-		if (this.room.hideReplay) {
-			this.room.settings.modjoin = '%';
-			this.room.setPrivate('hidden');
-		}
+		this.logData = null;
 		this.room.update();
 	}
 	async logBattle(

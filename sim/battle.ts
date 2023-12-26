@@ -108,6 +108,14 @@ type Part = string | number | boolean | Pokemon | Side | Effect | Move | null | 
 // An individual Side's request state is encapsulated in its `activeRequest` field.
 export type RequestState = 'teampreview' | 'move' | 'switch' | '';
 
+export interface SetCriteria {
+	species: string;
+	moves: string[];
+	ability?: string;
+	item?: string;
+	isLead: boolean;
+}
+
 export class Battle {
 	readonly id: ID;
 	readonly debugMode: boolean;
@@ -312,12 +320,23 @@ export class Battle {
 		}
 	}
 
+	consoleLog(s: string) {
+		return;
+		console.log(s);
+	}
+
 	toJSON(): AnyObject {
 		return State.serializeBattle(this);
 	}
 
 	static fromJSON(serialized: string | AnyObject): Battle {
 		return State.deserializeBattle(serialized);
+	}
+
+	emitState(sideid: SideID) {
+		const toSend = JSON.stringify(this.toJSON())
+		this.consoleLog(`about to send state ${toSend}`);
+		this.send('sideupdate', `${sideid}\n|state|${toSend}`);
 	}
 
 	get p1() {
@@ -2992,6 +3011,65 @@ export class Battle {
 
 		team = this.teamGenerator.getTeam(options);
 		return team as PokemonSet[];
+	}
+
+	rerollTeam(sideid: SideID, checkpointSets: SetCriteria[]) {
+		const getBaseSpecies = (s: string) => this.dex.species.get(s).baseSpecies;
+		if (checkpointSets.length === 0) {
+			this.consoleLog(`detected checkpointSets of length 0:\n${checkpointSets}`)
+			throw new Error(`shouldn't be rerolling a team without saving first`);
+		}
+		const side = this.getSide(sideid);
+		// .species.baseSpecies instead of just .baseSpecies
+		// because revealedBaseSpecies should be a string[], not a Species[]
+		this.teamGenerator = Teams.getGenerator(this.format, this.prng.seed);
+		const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, 6);
+		// const newTeam: RandomTeamsTypes.RandomSet[] = this.teamGenerator.randomTeamFromPartial(checkpointSets, Math.min(6, side.team.length+1));
+		
+		const savedSpecies = checkpointSets.map(set => toID(set.species));
+		const savedBaseSpecies = savedSpecies.map(getBaseSpecies);
+		const oldSpecies = side.team.map(set => set.species);
+		const newSpecies = newTeam.map(set => set.species);
+		this.consoleLog(`${oldSpecies} -> ${newSpecies}`);
+
+		let j = 0; // j iterates over new team, i over actual pokemon
+		this.consoleLog(`saved mons: [${savedSpecies}]`);
+		for (const [i, poke] of side.pokemon.entries()) {
+			// if baseSpecies is saved, just replace the set
+			if (savedBaseSpecies.includes(poke.species.baseSpecies)) {
+				this.consoleLog(`replacing set of saved ${poke.species.id}`);
+				// replace unrevealed items, abilities, moves of revealed pkmn
+				// find a match with the same baseSpecies
+				const newSet = newTeam.find(set => getBaseSpecies(set.species) === poke.species.baseSpecies);
+				// replaceSet does not modify forme
+				poke.replaceSet(newSet as PokemonSet);
+			}
+			else {
+				// new mons with saved baseSpecies will be taken care of 
+				while (savedBaseSpecies.includes(getBaseSpecies(newTeam[j].species))) j++;
+				this.consoleLog(`new ${newTeam[j].species} will replace ${poke.species.name}`);
+				// replace unrevealed pkmn
+				side.pokemon[i] = new Pokemon(newTeam[j], side);
+				side.pokemon[i].position = i;
+				j++;
+			}
+		}
+		let last_idx = side.pokemon.length;
+		while (last_idx < newTeam.length) {
+			while (savedBaseSpecies.includes(getBaseSpecies(newTeam[j].species))) j++;
+			side.pokemon.push(new Pokemon(newTeam[j], side))
+			j++;
+			side.pokemon[last_idx].position = last_idx;
+			last_idx++;
+		}
+		// do the same for team instead of pokemon
+
+		side.pokemonLeft = 0 // newly hallucinated pokemon will not be fainted
+		for (const p of side.pokemon) {
+			side.pokemonLeft += Number(!p.fainted)
+		}
+		side.team = side.pokemon.map(p => p.set);
+		this.consoleLog(`rerolled pokemon for ${sideid}: ${side.pokemon.map((p)=>{return p.species.id})}`);
 	}
 
 	showOpenTeamSheets(hideFromSpectators = false) {

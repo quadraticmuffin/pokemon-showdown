@@ -1,6 +1,7 @@
 import RandomGen5Teams from '../gen5/random-teams';
 import {Utils} from '../../../lib';
 import {PRNG} from '../../../sim';
+import {SetCriteria} from '../../../sim/battle';
 import type {MoveCounter} from '../gen8/random-teams';
 
 // Moves that restore HP:
@@ -77,6 +78,11 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			Steel: (movePool, moves, abilities, types, counter, species) => (!counter.get('Steel') && species.id === 'metagross'),
 			Water: (movePool, moves, abilities, types, counter) => !counter.get('Water'),
 		};
+	}
+
+	consoleLog(s: string) {
+		return;
+		console.log(s);
 	}
 
 	cullMovePool(
@@ -802,6 +808,371 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			item,
 			role,
 		};
+	}
+
+	randomConstrainedSet(
+		criteria: SetCriteria,
+		teamDetails: RandomTeamsTypes.TeamDetails = {},
+		attempts = 100, 
+	): RandomTeamsTypes.RandomSet {
+		const oldItem = criteria.item ? toID(criteria.item) : undefined;
+		const oldAbility = criteria.ability ? toID(criteria.ability) : undefined;
+		const oldMoves = criteria.moves.map(toID);
+		for (let i = 0; i < attempts; i++) {
+			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${isLead}`);
+			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, i === attempts-1);
+			const setHasMove = (oldMove: ID) => {
+				return newSet.moves.map((newMove) => {
+					const newMoveId = toID(newMove);
+					// old move is from opponent perspective, so won't have an hpType
+					if (newMoveId.startsWith('hiddenpower')) return 'hiddenpower';
+					return newMoveId;
+				}).includes(oldMove);
+			};
+			this.consoleLog(`\nCHECKING SET | species: ${newSet.species} | ability: ${newSet.ability} | item: ${newSet.item} | moves: ${newSet.moves}`)
+			if (oldItem && oldItem !== toID(newSet.item)) {
+				this.consoleLog(`item ${newSet.item} doesn't match criterion ${oldItem}. rerolling...`);
+				continue;
+			}
+			this.consoleLog(`passed item ${oldItem}`)
+			if (oldAbility && oldAbility !== toID(newSet.ability)) {
+				this.consoleLog(`ability ${newSet.ability} doesn't match criterion ${oldAbility}. rerolling...`);
+				continue;
+			}
+			this.consoleLog(`passed ability ${oldAbility}`)
+			if (!oldMoves.every(setHasMove)) {
+				this.consoleLog(`moveset ${newSet.moves} doesn't match criteria ${oldMoves}. rerolling...`);
+				continue;
+			}
+			this.consoleLog(`passed moves [${oldMoves}]`)
+			return newSet;
+		}
+		this.consoleLog(`tried ${attempts} times but couldn't make set satisfying constraints:`);
+		this.consoleLog(`species: ${criteria.species} | ability: ${criteria.ability} | item: ${criteria.item} | moves: ${criteria.moves}`)
+		throw new Error();
+	}
+
+	randomConstrainedSetInner(
+		criteria: SetCriteria,
+		teamDetails: RandomTeamsTypes.TeamDetails = {},
+		force: boolean = false,
+	): RandomTeamsTypes.RandomSet {
+		const species = this.dex.species.get(criteria.species);
+		const isLead = criteria.isLead;
+		const isDoubles = false;
+		let forme = species.name;
+
+		if (typeof species.battleOnly === 'string') {
+			// Only change the forme. The species has custom moves, and may have different typing and requirements.
+			forme = species.battleOnly;
+		}
+		if (species.cosmeticFormes) {
+			forme = this.sample([species.name].concat(species.cosmeticFormes));
+		}
+		const sets = this.randomSets[species.id]["sets"];
+		const possibleSets = [];
+		// Check which sets are possible based on criteria moves
+		let canSpinner = false;
+		for (const set of sets) {
+			if (!teamDetails.rapidSpin && set.role === 'Spinner') canSpinner = true;
+			if 
+		}
+		for (const set of sets) {
+			// Prevent Spinner if the team already has removal
+			if (teamDetails.rapidSpin && set.role === 'Spinner') continue;
+			// Enforce Spinner if the team does not have removal
+			if (canSpinner && set.role !== 'Spinner') continue;
+			possibleSets.push(set);
+		}
+		const set = this.sampleIfArray(possibleSets);
+		const role = set.role;
+		const movePool: string[] = Array.from(set.movepool);
+		const preferredTypes = set.preferredTypes;
+		const preferredType = this.sampleIfArray(preferredTypes) || '';
+
+		let ability = '';
+		let item = undefined;
+
+		const evs = {hp: 85, atk: 85, def: 85, spa: 85, spd: 85, spe: 85};
+		const ivs = {hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31};
+
+		const types = species.types;
+		const abilities = new Set(Object.values(species.abilities));
+		if (species.unreleasedHidden) abilities.delete(species.abilities.H);
+
+		// Get moves
+		const moves = this.randomMoveset(types, abilities, teamDetails, species, isLead, isDoubles, movePool,
+			preferredType, role);
+		const counter = this.newQueryMoves(moves, species, preferredType, abilities);
+
+		// Get ability
+		if (force && criteria.ability) ability = criteria.ability;
+		else ability = this.getAbility(new Set(types), moves, abilities, counter, movePool, teamDetails, species,
+			false, preferredType, role);
+
+		// Get items
+		if (force && criteria.item) item = criteria.item;
+		else {
+			item = this.getPriorityItem(ability, types, moves, counter, teamDetails, species, isLead, preferredType, role);
+			if (item === undefined) {
+				item = this.getItem(ability, types, moves, counter, teamDetails, species, isLead, preferredType, role);
+			}
+			// For Trick / Switcheroo
+			if (item === 'Leftovers' && types.includes('Poison')) {
+				item = 'Black Sludge';
+			}
+		}
+
+		const level = this.adjustLevel || this.randomSets[species.id]["level"] || (species.nfe ? 90 : 80);
+
+		// We use a special variable to track Hidden Power
+		// so that we can check for all Hidden Powers at once
+		let hasHiddenPower = false;
+		for (const move of moves) {
+			if (move.startsWith('hiddenpower')) hasHiddenPower = true;
+		}
+
+		if (hasHiddenPower) {
+			let hpType;
+			for (const move of moves) {
+				if (move.startsWith('hiddenpower')) hpType = move.substr(11);
+			}
+			if (!hpType) throw new Error(`hasHiddenPower is true, but no Hidden Power move was found.`);
+			const HPivs = this.dex.types.get(hpType).HPivs;
+			let iv: StatID;
+			for (iv in HPivs) {
+				ivs[iv] = HPivs[iv]!;
+			}
+		}
+
+		// Prepare optimal HP
+		const srImmunity = ability === 'Magic Guard';
+		let srWeakness = srImmunity ? 0 : this.dex.getEffectiveness('Rock', species);
+		// Crash damage move users want an odd HP to survive two misses
+		if (['highjumpkick', 'jumpkick'].some(m => moves.has(m))) srWeakness = 2;
+		while (evs.hp > 1) {
+			const hp = Math.floor(Math.floor(2 * species.baseStats.hp + ivs.hp + Math.floor(evs.hp / 4) + 100) * level / 100 + 10);
+			if (moves.has('substitute') && item === 'Sitrus Berry') {
+				// Two Substitutes should activate Sitrus Berry
+				if (hp % 4 === 0) break;
+			} else if (moves.has('bellydrum') && item === 'Sitrus Berry') {
+				// Belly Drum should activate Sitrus Berry
+				if (hp % 2 === 0) break;
+			} else {
+				// Maximize number of Stealth Rock switch-ins
+				if (srWeakness <= 0 || ['Black Sludge', 'Leftovers', 'Life Orb'].includes(item)) break;
+				if (item !== 'Sitrus Berry' && hp % (4 / srWeakness) > 0) break;
+				// Minimise number of Stealth Rock switch-ins to activate Sitrus Berry
+				if (item === 'Sitrus Berry' && hp % (4 / srWeakness) === 0) break;
+			}
+			evs.hp -= 4;
+		}
+
+		// Minimize confusion damage
+		if (!counter.get('Physical') && !moves.has('transform')) {
+			evs.atk = 0;
+			ivs.atk = hasHiddenPower ? (ivs.atk || 31) - 28 : 0;
+		}
+
+		if (['gyroball', 'metalburst', 'trickroom'].some(m => moves.has(m))) {
+			evs.spe = 0;
+			ivs.spe = hasHiddenPower ? (ivs.spe || 31) - 28 : 0;
+		}
+
+		return {
+			name: species.baseSpecies,
+			species: forme,
+			gender: species.gender,
+			shiny: this.randomChance(1, 1024),
+			level,
+			moves: Array.from(moves),
+			ability,
+			evs,
+			ivs,
+			item,
+			role,
+		};
+	}
+
+	randomTeamFromPartial(oldSets: SetCriteria[], teamSize: number) {
+		const seed = this.prng.seed;
+		const pokemon: RandomTeamsTypes.RandomSet[] = [];
+
+		const baseFormes: {[k: string]: number} = {};
+		const tierCount: {[k: string]: number} = {};
+		const typeCount: {[k: string]: number} = {};
+		const typeComboCount: {[k: string]: number} = {};
+		const typeWeaknesses: {[k: string]: number} = {};
+		const teamDetails: RandomTeamsTypes.TeamDetails = {};
+
+		const pokemonList = Object.keys(this.randomSets);
+		const [pokemonPool, baseSpeciesPool] = this.getPokemonPool(``, pokemon, false, pokemonList);
+		// Dynamically scale limits for different team sizes. The default and minimum value is 1.
+		const limitFactor = Math.round(teamSize / 6) || 1;
+
+		for (const oldSet of oldSets) {
+			const species = this.dex.species.get(oldSet.species);
+			const baseSpeciesIndex = baseSpeciesPool.indexOf(species.baseSpecies);
+			this.fastPop(baseSpeciesPool, baseSpeciesIndex);
+			baseFormes[species.baseSpecies] = 1;
+
+			// Because old Pokemon have already passed all checks, we can increment our counters
+			// Increment tier counter
+			const tier = species.tier;
+			if (tierCount[tier]) {
+				tierCount[tier]++;
+			} else {
+				tierCount[tier] = 1;
+			}
+
+			const types = species.types;
+			let typeCombo = types.slice().sort().join();
+			// Increment type counters
+			for (const typeName of types) {
+				if (typeName in typeCount) {
+					typeCount[typeName]++;
+				} else {
+					typeCount[typeName] = 1;
+				}
+			}
+			if (typeCombo in typeComboCount) {
+				typeComboCount[typeCombo]++;
+			} else {
+				typeComboCount[typeCombo] = 1;
+			}
+			// Increment weakness counter
+			for (const typeName of this.dex.types.names()) {
+				// it's weak to the type
+				if (this.dex.getEffectiveness(typeName, species) > 0) {
+					typeWeaknesses[typeName]++;
+				}
+			}
+			const newSet = this.randomConstrainedSet(
+				oldSet,
+				teamDetails,
+				500
+			)
+			
+			pokemon.push(newSet);
+			// Team details
+			if (newSet.ability === 'Snow Warning' || newSet.moves.includes('hail')) teamDetails.hail = 1;
+			if (newSet.ability === 'Drizzle' || newSet.moves.includes('raindance')) teamDetails.rain = 1;
+			if (newSet.ability === 'Sand Stream') teamDetails.sand = 1;
+			if (newSet.ability === 'Drought' || newSet.moves.includes('sunnyday')) teamDetails.sun = 1;
+			if (newSet.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
+			if (newSet.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
+			if (newSet.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
+			if (newSet.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
+			if (newSet.moves.includes('reflect') && newSet.moves.includes('lightscreen')) teamDetails.screens = 1;
+		}
+
+		while (baseSpeciesPool.length && pokemon.length < this.maxTeamSize) {
+			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
+			const currentSpeciesPool: Species[] = [];
+			for (const poke of pokemonPool) {
+				const species = this.dex.species.get(poke);
+				if (species.baseSpecies === baseSpecies) currentSpeciesPool.push(species);
+			}
+			const species = this.sample(currentSpeciesPool);
+			if (!species.exists) continue;
+
+			// Limit to one of each species (Species Clause)
+			if (baseFormes[species.baseSpecies]) continue;
+
+			// Illusion shouldn't be in the last slot
+			if (species.name === 'Zoroark' && pokemon.length >= (this.maxTeamSize - 1)) continue;
+
+			const tier = species.tier;
+
+			// Limit two Pokemon per tier
+			if (tierCount[tier] >= 2 * limitFactor) continue;
+
+			const types = species.types;
+			const typeCombo = types.slice().sort().join();
+
+			let skip = false;
+
+			// Limit two of any type
+			for (const typeName of types) {
+				if (typeCount[typeName] >= 2 * limitFactor) {
+					skip = true;
+					break;
+				}
+			}
+			if (skip) continue;
+
+			// Limit three weak to any type
+			for (const typeName of this.dex.types.names()) {
+				// it's weak to the type
+				if (this.dex.getEffectiveness(typeName, species) > 0) {
+					if (!typeWeaknesses[typeName]) typeWeaknesses[typeName] = 0;
+					if (typeWeaknesses[typeName] >= 3 * limitFactor) {
+						skip = true;
+						break;
+					}
+				}
+			}
+			if (skip) continue;
+
+			// Limit one of any type combination
+			if (typeComboCount[typeCombo] >= 1 * limitFactor) continue;
+
+			const set = this.randomSet(species, teamDetails, pokemon.length === 0);
+
+			// Okay, the set passes, add it to our team
+			pokemon.push(set);
+
+			// Don't bother tracking details for the last Pokemon
+			if (pokemon.length === this.maxTeamSize) break;
+
+			// Now that our Pokemon has passed all checks, we can increment our counters
+			baseFormes[species.baseSpecies] = 1;
+
+			// Increment tier counter
+			if (tierCount[tier]) {
+				tierCount[tier]++;
+			} else {
+				tierCount[tier] = 1;
+			}
+
+			// Increment type counters
+			for (const typeName of types) {
+				if (typeName in typeCount) {
+					typeCount[typeName]++;
+				} else {
+					typeCount[typeName] = 1;
+				}
+			}
+			if (typeCombo in typeComboCount) {
+				typeComboCount[typeCombo]++;
+			} else {
+				typeComboCount[typeCombo] = 1;
+			}
+
+			// Increment weakness counter
+			for (const typeName of this.dex.types.names()) {
+				// it's weak to the type
+				if (this.dex.getEffectiveness(typeName, species) > 0) {
+					typeWeaknesses[typeName]++;
+				}
+			}
+
+			// Team details
+			if (set.ability === 'Snow Warning' || set.moves.includes('hail')) teamDetails.hail = 1;
+			if (set.ability === 'Drizzle' || set.moves.includes('raindance')) teamDetails.rain = 1;
+			if (set.ability === 'Sand Stream') teamDetails.sand = 1;
+			if (set.ability === 'Drought' || set.moves.includes('sunnyday')) teamDetails.sun = 1;
+			if (set.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
+			if (set.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
+			if (set.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
+			if (set.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
+			if (set.moves.includes('reflect') && set.moves.includes('lightscreen')) teamDetails.screens = 1;
+		}
+		if (pokemon.length < this.maxTeamSize && pokemon.length < 12) {
+			throw new Error(`Could not build a random team for ${this.format} (seed=${seed})`);
+		}
+
+		return pokemon;
 	}
 }
 
