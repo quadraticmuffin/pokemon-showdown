@@ -81,7 +81,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	}
 
 	consoleLog(s: string) {
-		return;
 		console.log(s);
 	}
 
@@ -455,6 +454,247 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		return moves;
 	}
 
+	// Generate random moveset for a given species, role, preferred type.
+	// starts out with some number of moves.
+	randomConstrainedMoveset(
+		lockedMoves: Set<string>,
+		types: string[],
+		abilities: Set<string>,
+		teamDetails: RandomTeamsTypes.TeamDetails,
+		species: Species,
+		isLead: boolean,
+		isDoubles: boolean,
+		movePool: string[],
+		preferredType: string,
+		role: RandomTeamsTypes.Role,
+	): Set<string> {
+		// movePool should already have lockedMoves removed
+		const moves = lockedMoves;
+		let counter = this.newQueryMoves(moves, species, preferredType, abilities);
+		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead, isDoubles,
+			preferredType, role);
+
+		// If there are only four moves, add all moves and return early
+		if (movePool.length <= this.maxMoveCount - moves.size) {
+			// Still need to ensure that multiple Hidden Powers are not added (if maxMoveCount is increased)
+			while (movePool.length) {
+				const moveid = this.sample(movePool);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+			return moves;
+		}
+
+		const runEnforcementChecker = (checkerName: string) => {
+			if (!this.moveEnforcementCheckers[checkerName]) return false;
+			return this.moveEnforcementCheckers[checkerName](
+				movePool, moves, abilities, new Set(types), counter, species, teamDetails
+			);
+		};
+
+		// Add required move (e.g. Relic Song for Meloetta-P)
+		if (species.requiredMove) {
+			const move = this.dex.moves.get(species.requiredMove).id;
+			counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				movePool, preferredType, role);
+		}
+
+		// Add other moves you really want to have, e.g. STAB, recovery, setup.
+
+		// Enforce Facade if Guts is a possible ability
+		if (movePool.includes('facade') && abilities.has('Guts')) {
+			counter = this.addMove('facade', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				movePool, preferredType, role);
+		}
+
+		// Enforce Seismic Toss, Spore, and Volt Tackle
+		for (const moveid of ['seismictoss', 'spore', 'volttackle']) {
+			if (movePool.includes(moveid)) {
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce Substitute on non-Setup sets with Baton Pass
+		if (!role.includes('Setup')) {
+			if (movePool.includes('batonpass') && movePool.includes('substitute')) {
+				counter = this.addMove('substitute', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce hazard removal on Bulky Support and Spinner if the team doesn't already have it
+		if (['Bulky Support', 'Spinner'].includes(role) && !teamDetails.rapidSpin) {
+			if (movePool.includes('rapidspin')) {
+				counter = this.addMove('rapidspin', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce STAB priority
+		if (['Bulky Attacker', 'Bulky Setup'].includes(role) || this.priorityPokemon.includes(species.id)) {
+			const priorityMoves = [];
+			for (const moveid of movePool) {
+				const move = this.dex.moves.get(moveid);
+				const moveType = this.getMoveType(move, species, abilities, preferredType);
+				if (types.includes(moveType) && move.priority > 0 && (move.basePower || move.basePowerCallback)) {
+					priorityMoves.push(moveid);
+				}
+			}
+			if (priorityMoves.length) {
+				const moveid = this.sample(priorityMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce STAB
+		for (const type of types) {
+			// Check if a STAB move of that type should be required
+			const stabMoves = [];
+			for (const moveid of movePool) {
+				const move = this.dex.moves.get(moveid);
+				const moveType = this.getMoveType(move, species, abilities, preferredType);
+				if (!this.noStab.includes(moveid) && (move.basePower || move.basePowerCallback) && type === moveType) {
+					stabMoves.push(moveid);
+				}
+			}
+			while (runEnforcementChecker(type)) {
+				if (!stabMoves.length) break;
+				const moveid = this.sampleNoReplace(stabMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce Preferred Type
+		if (!counter.get('preferred')) {
+			const stabMoves = [];
+			for (const moveid of movePool) {
+				const move = this.dex.moves.get(moveid);
+				const moveType = this.getMoveType(move, species, abilities, preferredType);
+				if (!this.noStab.includes(moveid) && (move.basePower || move.basePowerCallback) && preferredType === moveType) {
+					stabMoves.push(moveid);
+				}
+			}
+			if (stabMoves.length) {
+				const moveid = this.sample(stabMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// If no STAB move was added, add a STAB move
+		if (!counter.get('stab')) {
+			const stabMoves = [];
+			for (const moveid of movePool) {
+				const move = this.dex.moves.get(moveid);
+				const moveType = this.getMoveType(move, species, abilities, preferredType);
+				if (!this.noStab.includes(moveid) && (move.basePower || move.basePowerCallback) && types.includes(moveType)) {
+					stabMoves.push(moveid);
+				}
+			}
+			if (stabMoves.length) {
+				const moveid = this.sample(stabMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			} else {
+				// If they have no regular STAB move, enforce U-turn on Bug types.
+				if (movePool.includes('uturn') && types.includes('Bug')) {
+					counter = this.addMove('uturn', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+						movePool, preferredType, role);
+				}
+			}
+		}
+
+		// Enforce recovery
+		if (['Bulky Support', 'Bulky Attacker', 'Bulky Setup', 'Spinner', 'Staller'].includes(role)) {
+			const recoveryMoves = movePool.filter(moveid => RECOVERY_MOVES.includes(moveid));
+			if (recoveryMoves.length) {
+				const moveid = this.sample(recoveryMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce Staller moves
+		if (role === 'Staller') {
+			const enforcedMoves = ['protect', 'toxic', 'wish'];
+			for (const move of enforcedMoves) {
+				if (movePool.includes(move)) {
+					counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+						movePool, preferredType, role);
+				}
+			}
+		}
+
+		// Enforce setup
+		if (role.includes('Setup')) {
+			const setupMoves = movePool.filter(moveid => SETUP.includes(moveid));
+			if (setupMoves.length) {
+				const moveid = this.sample(setupMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce a move not on the noSTAB list
+		if (!counter.damagingMoves.size && !(moves.has('uturn') && types.includes('Bug'))) {
+			// Choose an attacking move
+			const attackingMoves = [];
+			for (const moveid of movePool) {
+				const move = this.dex.moves.get(moveid);
+				if (!this.noStab.includes(moveid) && (move.category !== 'Status')) attackingMoves.push(moveid);
+			}
+			if (attackingMoves.length) {
+				const moveid = this.sample(attackingMoves);
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					movePool, preferredType, role);
+			}
+		}
+
+		// Enforce coverage move
+		if (['Fast Attacker', 'Setup Sweeper', 'Bulky Attacker', 'Wallbreaker'].includes(role)) {
+			if (counter.damagingMoves.size === 1) {
+				// Find the type of the current attacking move
+				const currentAttackType = counter.damagingMoves.values().next().value.type;
+				// Choose an attacking move that is of different type to the current single attack
+				const coverageMoves = [];
+				for (const moveid of movePool) {
+					const move = this.dex.moves.get(moveid);
+					const moveType = this.getMoveType(move, species, abilities, preferredType);
+					if (!this.noStab.includes(moveid) && (move.basePower || move.basePowerCallback)) {
+						if (currentAttackType !== moveType) coverageMoves.push(moveid);
+					}
+				}
+				if (coverageMoves.length) {
+					const moveid = this.sample(coverageMoves);
+					counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+						movePool, preferredType, role);
+				}
+			}
+		}
+
+		// Choose remaining moves randomly from movepool and add them to moves list:
+		while (moves.size < this.maxMoveCount && movePool.length) {
+			const moveid = this.sample(movePool);
+			counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				movePool, preferredType, role);
+			for (const pair of MOVE_PAIRS) {
+				if (moveid === pair[0] && movePool.includes(pair[1])) {
+					counter = this.addMove(pair[1], moves, types, abilities, teamDetails, species, isLead, isDoubles,
+						movePool, preferredType, role);
+				}
+				if (moveid === pair[1] && movePool.includes(pair[0])) {
+					counter = this.addMove(pair[0], moves, types, abilities, teamDetails, species, isLead, isDoubles,
+						movePool, preferredType, role);
+				}
+			}
+		}
+		return moves;
+	}
+
+
 	shouldCullAbility(
 		ability: string,
 		types: Set<string>,
@@ -818,9 +1058,19 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const oldItem = criteria.item ? toID(criteria.item) : undefined;
 		const oldAbility = criteria.ability ? toID(criteria.ability) : undefined;
 		const oldMoves = criteria.moves.map(toID);
+
+		const species = this.dex.species.get(criteria.species);
+		const sets = this.randomSets[species.id]["sets"];
+		const possibleSets = [];
+		// Check which sets are possible based on criteria moves
+		for (const set of sets) {
+			if (oldMoves.every(m => set.movepool.includes(m))) {
+				possibleSets.push(set);
+			}
+		}
 		for (let i = 0; i < attempts; i++) {
-			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${isLead}`);
-			const newSet = this.randomConstrainedSetInner(criteria, teamDetails, i === attempts-1);
+			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${criteria.isLead}`);
+			const newSet = this.randomConstrainedSetInner(criteria, possibleSets, teamDetails, i === attempts-1);
 			const setHasMove = (oldMove: ID) => {
 				return newSet.moves.map((newMove) => {
 					const newMoveId = toID(newMove);
@@ -854,6 +1104,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 
 	randomConstrainedSetInner(
 		criteria: SetCriteria,
+		possibleSets: RandomTeamsTypes.RandomSetData[],
 		teamDetails: RandomTeamsTypes.TeamDetails = {},
 		force: boolean = false,
 	): RandomTeamsTypes.RandomSet {
@@ -869,27 +1120,42 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		if (species.cosmeticFormes) {
 			forme = this.sample([species.name].concat(species.cosmeticFormes));
 		}
-		const sets = this.randomSets[species.id]["sets"];
-		const possibleSets = [];
-		// Check which sets are possible based on criteria moves
-		let canSpinner = false;
-		for (const set of sets) {
-			if (!teamDetails.rapidSpin && set.role === 'Spinner') canSpinner = true;
-			if 
-		}
-		for (const set of sets) {
-			// Prevent Spinner if the team already has removal
-			if (teamDetails.rapidSpin && set.role === 'Spinner') continue;
-			// Enforce Spinner if the team does not have removal
-			if (canSpinner && set.role !== 'Spinner') continue;
-			possibleSets.push(set);
-		}
+		
+		
 		const set = this.sampleIfArray(possibleSets);
 		const role = set.role;
-		const movePool: string[] = Array.from(set.movepool);
+		const movePoolWithLockedMoves: string[] = set.movepool;
 		const preferredTypes = set.preferredTypes;
 		const preferredType = this.sampleIfArray(preferredTypes) || '';
+		
+		const lockedMoves = new Set<string>(...criteria.moves);
+		this.consoleLog(`locked moves: ${criteria.moves}`);
+		// hallucinate hidden power type
+		let hasHiddenPower = criteria.moves.some(moveid => moveid.startsWith('hiddenpower'));
+		this.consoleLog(`locked moves have hiddenpower: ${hasHiddenPower}`);
+		if (hasHiddenPower) {
+			const hpTypeIdxPool: number[] = [];
+			for (let i = movePoolWithLockedMoves.length-1; i >= 0; i--) {
+				// count hiddenpowers and track their indices
+				if (movePoolWithLockedMoves[i].startsWith('hiddenpower')) {
+					hpTypeIdxPool.push(i);
+				}
+			}
+			// TODO change once we can infer hidden power type
+			if (hasHiddenPower) {
+				// sample a possible type for hiddenpower 
+				// (we don't know the type of hp since criteria comes from opponent)
+				lockedMoves.delete('hiddenpower');
+				const newHpIdx = this.sample(hpTypeIdxPool);
+				const newHp = movePoolWithLockedMoves[newHpIdx];
+				lockedMoves.add(movePoolWithLockedMoves[newHpIdx]);
+				this.fastPop(movePoolWithLockedMoves, newHpIdx)
+				this.consoleLog(`replaced hiddenpower with ${newHp}`);
+			}
+		}
 
+		const movePool = movePoolWithLockedMoves.filter(m => !criteria.moves.includes(m))
+		
 		let ability = '';
 		let item = undefined;
 
@@ -901,14 +1167,22 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		if (species.unreleasedHidden) abilities.delete(species.abilities.H);
 
 		// Get moves
-		const moves = this.randomMoveset(types, abilities, teamDetails, species, isLead, isDoubles, movePool,
+		const moves = this.randomConstrainedMoveset(lockedMoves, types, abilities, teamDetails, species, isLead, isDoubles, movePool,
 			preferredType, role);
 		const counter = this.newQueryMoves(moves, species, preferredType, abilities);
 
 		// Get ability
 		if (force && criteria.ability) ability = criteria.ability;
-		else ability = this.getAbility(new Set(types), moves, abilities, counter, movePool, teamDetails, species,
+		else {
+			// make sure hydration, swiftswim, chlorophyll don't get culled unnecessarily
+			// TODO sample sun and rain with random probability equal to the chance that 
+			// a randomly chosen team contains them
+			const tempTeamDetails = Object.assign({}, teamDetails);
+			tempTeamDetails.sun = 1;
+			tempTeamDetails.rain = 1;
+			ability = this.getAbility(new Set(types), moves, abilities, counter, movePool, tempTeamDetails, species,
 			false, preferredType, role);
+		}
 
 		// Get items
 		if (force && criteria.item) item = criteria.item;
@@ -927,7 +1201,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 
 		// We use a special variable to track Hidden Power
 		// so that we can check for all Hidden Powers at once
-		let hasHiddenPower = false;
+		hasHiddenPower = false;
 		for (const move of moves) {
 			if (move.startsWith('hiddenpower')) hasHiddenPower = true;
 		}
@@ -1010,6 +1284,18 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Dynamically scale limits for different team sizes. The default and minimum value is 1.
 		const limitFactor = Math.round(teamSize / 6) || 1;
 
+		//pre-populate teamDetails
+		for (const oldSet of oldSets) {
+			if (oldSet.ability === 'Snow Warning' || oldSet.moves.includes('hail')) teamDetails.hail = 1;
+			if (oldSet.ability === 'Drizzle' || oldSet.moves.includes('raindance')) teamDetails.rain = 1;
+			if (oldSet.ability === 'Sand Stream') teamDetails.sand = 1;
+			if (oldSet.ability === 'Drought' || oldSet.moves.includes('sunnyday')) teamDetails.sun = 1;
+			if (oldSet.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
+			if (oldSet.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
+			if (oldSet.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
+			if (oldSet.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
+			if (oldSet.moves.includes('reflect') && oldSet.moves.includes('lightscreen')) teamDetails.screens = 1;
+		}
 		for (const oldSet of oldSets) {
 			const species = this.dex.species.get(oldSet.species);
 			const baseSpeciesIndex = baseSpeciesPool.indexOf(species.baseSpecies);
@@ -1066,7 +1352,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			if (newSet.moves.includes('reflect') && newSet.moves.includes('lightscreen')) teamDetails.screens = 1;
 		}
 
-		while (baseSpeciesPool.length && pokemon.length < this.maxTeamSize) {
+		while (baseSpeciesPool.length && pokemon.length < teamSize) {
 			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
 			const currentSpeciesPool: Species[] = [];
 			for (const poke of pokemonPool) {
@@ -1080,7 +1366,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			if (baseFormes[species.baseSpecies]) continue;
 
 			// Illusion shouldn't be in the last slot
-			if (species.name === 'Zoroark' && pokemon.length >= (this.maxTeamSize - 1)) continue;
+			if (species.name === 'Zoroark' && pokemon.length >= (teamSize - 1)) continue;
 
 			const tier = species.tier;
 
@@ -1123,7 +1409,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			pokemon.push(set);
 
 			// Don't bother tracking details for the last Pokemon
-			if (pokemon.length === this.maxTeamSize) break;
+			if (pokemon.length === teamSize) break;
 
 			// Now that our Pokemon has passed all checks, we can increment our counters
 			baseFormes[species.baseSpecies] = 1;
@@ -1168,7 +1454,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			if (set.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
 			if (set.moves.includes('reflect') && set.moves.includes('lightscreen')) teamDetails.screens = 1;
 		}
-		if (pokemon.length < this.maxTeamSize && pokemon.length < 12) {
+		if (pokemon.length < teamSize && pokemon.length < 12) {
 			throw new Error(`Could not build a random team for ${this.format} (seed=${seed})`);
 		}
 

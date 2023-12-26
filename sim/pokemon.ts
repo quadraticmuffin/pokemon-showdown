@@ -484,7 +484,6 @@ export class Pokemon {
 	}
 
 	consoleLog(s: string) {
-		return;
 		console.log(s);
 	}
 
