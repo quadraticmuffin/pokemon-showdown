@@ -1481,8 +1481,18 @@ export class Pokemon {
 		this.consoleLog(`OLD species: ${this.set.species} | item: ${this.set.item} | ability: ${this.set.ability} | moves: [${this.set.moves}]`);
 		this.consoleLog(`NEW species: ${newSet.species} | item: ${newSet.item} | ability: ${newSet.ability} | moves: [${newSet.moves}]`);
 
-		this.setItem(newSet.item);
+		// own setItem code since setItem returns prematurely for non-active or fainted pkmn
+		const newItem = this.battle.dex.items.get(newSet.item);
+		const oldItem = this.getItem();
+		const oldItemState = this.itemState;
+		this.item = newItem.id;
+		this.itemState = {id: newItem.id, target: this};
+		if (oldItem.exists) this.battle.singleEvent('End', oldItem, oldItemState, this);
+		if (newItem.id) {
+			this.battle.singleEvent('Start', newItem, this.itemState, this, null, null);
+		}
 		this.set.item = newSet.item;
+		
 		this.setAbility(newSet.ability);
 		this.set.ability = newSet.ability;
 		let bmsIdx = 0; 
