@@ -1071,6 +1071,14 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				possibleSets.push(set);
 			}
 		}
+		if (possibleSets.length === 0) {
+			console.log(`NO SETS POSSIBLE MATCHING MOVEPOOL ${oldMoves} FOR ${criteria.species}`);
+			console.log('POSSIBLE SETS:');
+			for (const set of sets) {
+				console.log(`${set.movepool}`);
+				possibleSets.push(set);
+			}
+		}
 		for (let i = 0; i < attempts; i++) {
 			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${criteria.isLead}`);
 			const newSet = this.randomConstrainedSetInner(criteria, possibleSets, teamDetails, i === attempts-1);
@@ -1131,10 +1139,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const preferredType = this.sampleIfArray(preferredTypes) || '';
 		
 		const lockedMoves = new Set<string>(criteria.moves);
-		this.consoleLog(`locked moves: ${Array.from(lockedMoves)}`);
 		// hallucinate hidden power type
 		let hasHiddenPower = criteria.moves.some(moveid => moveid.startsWith('hiddenpower'));
-		this.consoleLog(`locked moves have hiddenpower: ${hasHiddenPower}`);
 		if (hasHiddenPower) {
 			const hpTypeIdxPool: number[] = [];
 			for (let i = movePoolWithLockedMoves.length-1; i >= 0; i--) {
