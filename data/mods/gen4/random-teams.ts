@@ -456,6 +456,32 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		return moves;
 	}
 
+	// Adds a move to the moveset, returns the MoveCounter
+	addMove(
+		move: string,
+		moves: Set<string>,
+		types: string[],
+		abilities: Set<string>,
+		teamDetails: RandomTeamsTypes.TeamDetails,
+		species: Species,
+		isLead: boolean,
+		isDoubles: boolean,
+		movePool: string[],
+		preferredType: string,
+		role: RandomTeamsTypes.Role,
+	): MoveCounter {
+		if (moves.size === 4) {
+			const counter = this.newQueryMoves(moves, species, preferredType, abilities);
+			return counter;
+		}
+		moves.add(move);
+		this.fastPop(movePool, movePool.indexOf(move));
+		const counter = this.newQueryMoves(moves, species, preferredType, abilities);
+		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead, isDoubles,
+			preferredType, role);
+		return counter;
+	}
+
 	// Generate random moveset for a given species, role, preferred type.
 	// starts out with some number of moves.
 	randomConstrainedMoveset(
@@ -1175,19 +1201,28 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		if (species.unreleasedHidden) abilities.delete(species.abilities.H);
 
 		// Get moves
-		const moves = this.randomConstrainedMoveset(lockedMoves, types, abilities, teamDetails, species, isLead, isDoubles, movePool,
-			preferredType, role);
-		const counter = this.newQueryMoves(moves, species, preferredType, abilities);
+		let moves: Set<string> 
+		let counter: MoveCounter
+		if (force) {
+			moves = this.randomConstrainedMoveset(lockedMoves, types, abilities, teamDetails, species, isLead, isDoubles, movePool,
+				preferredType, role);
+			counter = this.newQueryMoves(moves, species, preferredType, abilities);
+		}
+		else {
+			moves = this.randomMoveset(types, abilities, teamDetails, species, isLead, isDoubles, Array.from(set.movepool),
+				preferredType, role);
+			counter = this.newQueryMoves(moves, species, preferredType, abilities);
+		}
 
 		// Get ability
 		if (force && criteria.ability) ability = criteria.ability;
 		else {
 			// make sure hydration, swiftswim, chlorophyll don't get culled unnecessarily
-			// TODO sample sun and rain with random probability equal to the chance that 
-			// a randomly chosen team contains them
+			// roughly sample the chance that a completely random team has sun or rain
+			// (this is good enough, no need to condition on existing pokemon or whatever)
 			const tempTeamDetails = Object.assign({}, teamDetails);
-			tempTeamDetails.sun = 1;
-			tempTeamDetails.rain = 1;
+			tempTeamDetails.sun = teamDetails.sun || (this.random() < .054 ? 1 : 0);
+			tempTeamDetails.rain = teamDetails.rain || (this.random() < .120 ? 1 : 0);
 			ability = this.getAbility(new Set(types), moves, abilities, counter, movePool, tempTeamDetails, species,
 			false, preferredType, role);
 		}
@@ -1344,7 +1379,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			const newSet = this.randomConstrainedSet(
 				oldSet,
 				teamDetails,
-				500
+				10
 			)
 			
 			pokemon.push(newSet);
