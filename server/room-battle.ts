@@ -645,6 +645,7 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 	}
 
 	consoleLog(s: string) {
+		return;
 		console.log(s);
 	}
 

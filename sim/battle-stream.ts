@@ -58,6 +58,7 @@ export class BattleStream extends Streams.ObjectReadWriteStream<string> {
 	}
 
 	consoleLog(s: string) {
+		return;
 		console.log(s);
 	}
 

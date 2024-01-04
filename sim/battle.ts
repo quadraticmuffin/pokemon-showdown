@@ -321,6 +321,7 @@ export class Battle {
 	}
 
 	consoleLog(s: string) {
+		return;
 		console.log(s);
 	}
 

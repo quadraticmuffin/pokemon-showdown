@@ -484,6 +484,7 @@ export class Pokemon {
 	}
 
 	consoleLog(s: string) {
+		return;
 		console.log(s);
 	}
 
@@ -1497,6 +1498,7 @@ export class Pokemon {
 		this.set.ability = newSet.ability;
 		let bmsIdx = 0; 
 		const newMoveIDs = newSet.moves.map(toID);
+		let someDisabled;
 		for (const moveid of newSet.moves) {
 			let move = this.battle.dex.moves.get(moveid);
 			if (!move.id) {
@@ -1523,14 +1525,17 @@ export class Pokemon {
 				disabled = true;
 				disabledSource = this.getItem().name;
 			}
-			if (this.volatiles['encore'] && move.id == this.side.lastSelectedMove) {
+			if (this.volatiles['encore'] && move.id != this.side.lastSelectedMove) {
 				// showdown doesn't normally use lastSelectedMove in this gen, so I get to hijack it for hallucination
 				disabled = true;
 				disabledSource = 'Encore'
 			}
-			if (this.volatiles['taunt'] && move.category !== 'Status') {
+			if (this.volatiles['taunt'] && move.category === 'Status') {
 				disabled = true;
 				disabledSource = 'Taunt'
+			}
+			if (disabled) {
+				someDisabled = true;
 			}
 			const newMove = {
 				move: move.name,
@@ -1548,6 +1553,12 @@ export class Pokemon {
 		}
 		this.moveSlots = this.baseMoveSlots.slice();
 		for (let i = 0; i < this.moves.length; i++) this.set.moves[i] = this.moves[i];
+		// if (someDisabled) {
+		// 	for (const moveSlot of this.moveSlots) {
+		// 		console.log(`${moveSlot.move}\n\tpp: ${moveSlot.pp}/${moveSlot.maxpp}\tdisabled: ${moveSlot.disabled} by ${moveSlot.disabledSource}`);
+		// 	}
+		// 	console.log();
+		// }
 		this.consoleLog(`FINAL species: ${this.species} | item: ${this.item} | ability: ${this.ability} | moves: [${this.moves}]`);
 	}
 
