@@ -1492,7 +1492,7 @@ export class Pokemon {
 			this.battle.singleEvent('Start', newItem, this.itemState, this, null, null);
 		}
 		this.set.item = newSet.item;
-		
+
 		this.setAbility(newSet.ability);
 		this.set.ability = newSet.ability;
 		let bmsIdx = 0; 
@@ -1516,14 +1516,30 @@ export class Pokemon {
 			let basepp = (move.noPPBoosts || move.isZ) ? move.pp : move.pp * 8 / 5;
 			if (this.battle.gen < 3) basepp = Math.min(61, basepp);
 			while (bmsIdx < this.baseMoveSlots.length && newMoveIDs.includes(this.baseMoveSlots[bmsIdx].id)) bmsIdx++;
+			
+			let disabled = false;
+			let disabledSource = '';
+			if (this.volatiles['choicelock'] && move.id !== this.volatiles['choicelock'].move) {
+				disabled = true;
+				disabledSource = this.getItem().name;
+			}
+			if (this.volatiles['encore'] && move.id == this.side.lastSelectedMove) {
+				// showdown doesn't normally use lastSelectedMove in this gen, so I get to hijack it for hallucination
+				disabled = true;
+				disabledSource = 'Encore'
+			}
+			if (this.volatiles['taunt'] && move.category !== 'Status') {
+				disabled = true;
+				disabledSource = 'Taunt'
+			}
 			const newMove = {
 				move: move.name,
 				id: move.id,
 				pp: basepp,
 				maxpp: basepp,
 				target: move.target,
-				disabled: false,
-				disabledSource: '',
+				disabled: disabled, 
+				disabledSource: disabledSource,
 				used: false,
 			};
 			if (!this.baseMoveSlots[bmsIdx]) this.baseMoveSlots.push(newMove);
