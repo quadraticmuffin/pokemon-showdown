@@ -463,7 +463,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		teamDetails: RandomTeamsTypes.TeamDetails,
 		species: Species,
 		isLead: boolean,
-		isDoubles: boolean,
 		movePool: string[],
 		preferredType: string,
 		role: RandomTeamsTypes.Role,
@@ -475,8 +474,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		moves.add(move);
 		this.fastPop(movePool, movePool.indexOf(move));
 		const counter = this.newQueryMoves(moves, species, preferredType, abilities);
-		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead, isDoubles,
-			preferredType, role);
+		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead, preferredType, role);
 		return counter;
 	}
 
@@ -489,7 +487,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		teamDetails: RandomTeamsTypes.TeamDetails,
 		species: Species,
 		isLead: boolean,
-		isDoubles: boolean,
 		movePool: string[],
 		preferredType: string,
 		role: RandomTeamsTypes.Role,
@@ -497,7 +494,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// movePool should already have lockedMoves removed
 		const moves = lockedMoves;
 		let counter = this.newQueryMoves(moves, species, preferredType, abilities);
-		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead, isDoubles,
+		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead,
 			preferredType, role);
 
 		// If there are only four moves, add all moves and return early
@@ -505,7 +502,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			// Still need to ensure that multiple Hidden Powers are not added (if maxMoveCount is increased)
 			while (movePool.length) {
 				const moveid = this.sample(movePool);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 			return moves;
@@ -521,7 +518,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Add required move (e.g. Relic Song for Meloetta-P)
 		if (species.requiredMove) {
 			const move = this.dex.moves.get(species.requiredMove).id;
-			counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+			counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead,
 				movePool, preferredType, role);
 		}
 
@@ -529,14 +526,14 @@ export class RandomGen4Teams extends RandomGen5Teams {
 
 		// Enforce Facade if Guts is a possible ability
 		if (movePool.includes('facade') && abilities.has('Guts')) {
-			counter = this.addMove('facade', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+			counter = this.addMove('facade', moves, types, abilities, teamDetails, species, isLead,
 				movePool, preferredType, role);
 		}
 
 		// Enforce Seismic Toss, Spore, and Volt Tackle
 		for (const moveid of ['seismictoss', 'spore', 'volttackle']) {
 			if (movePool.includes(moveid)) {
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -544,7 +541,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Enforce Substitute on non-Setup sets with Baton Pass
 		if (!role.includes('Setup')) {
 			if (movePool.includes('batonpass') && movePool.includes('substitute')) {
-				counter = this.addMove('substitute', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove('substitute', moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -552,7 +549,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Enforce hazard removal on Bulky Support and Spinner if the team doesn't already have it
 		if (['Bulky Support', 'Spinner'].includes(role) && !teamDetails.rapidSpin) {
 			if (movePool.includes('rapidspin')) {
-				counter = this.addMove('rapidspin', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove('rapidspin', moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -569,7 +566,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (priorityMoves.length) {
 				const moveid = this.sample(priorityMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -588,7 +585,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			while (runEnforcementChecker(type)) {
 				if (!stabMoves.length) break;
 				const moveid = this.sampleNoReplace(stabMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -605,7 +602,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (stabMoves.length) {
 				const moveid = this.sample(stabMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -622,12 +619,12 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (stabMoves.length) {
 				const moveid = this.sample(stabMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			} else {
 				// If they have no regular STAB move, enforce U-turn on Bug types.
 				if (movePool.includes('uturn') && types.includes('Bug')) {
-					counter = this.addMove('uturn', moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					counter = this.addMove('uturn', moves, types, abilities, teamDetails, species, isLead,
 						movePool, preferredType, role);
 				}
 			}
@@ -638,7 +635,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			const recoveryMoves = movePool.filter(moveid => RECOVERY_MOVES.includes(moveid));
 			if (recoveryMoves.length) {
 				const moveid = this.sample(recoveryMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -648,7 +645,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			const enforcedMoves = ['protect', 'toxic', 'wish'];
 			for (const move of enforcedMoves) {
 				if (movePool.includes(move)) {
-					counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead,
 						movePool, preferredType, role);
 				}
 			}
@@ -659,7 +656,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			const setupMoves = movePool.filter(moveid => SETUP.includes(moveid));
 			if (setupMoves.length) {
 				const moveid = this.sample(setupMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -674,7 +671,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (attackingMoves.length) {
 				const moveid = this.sample(attackingMoves);
-				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+				counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 					movePool, preferredType, role);
 			}
 		}
@@ -695,7 +692,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				}
 				if (coverageMoves.length) {
 					const moveid = this.sample(coverageMoves);
-					counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 						movePool, preferredType, role);
 				}
 			}
@@ -704,15 +701,15 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Choose remaining moves randomly from movepool and add them to moves list:
 		while (moves.size < this.maxMoveCount && movePool.length) {
 			const moveid = this.sample(movePool);
-			counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead, isDoubles,
+			counter = this.addMove(moveid, moves, types, abilities, teamDetails, species, isLead,
 				movePool, preferredType, role);
 			for (const pair of MOVE_PAIRS) {
 				if (moveid === pair[0] && movePool.includes(pair[1])) {
-					counter = this.addMove(pair[1], moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					counter = this.addMove(pair[1], moves, types, abilities, teamDetails, species, isLead,
 						movePool, preferredType, role);
 				}
 				if (moveid === pair[1] && movePool.includes(pair[0])) {
-					counter = this.addMove(pair[0], moves, types, abilities, teamDetails, species, isLead, isDoubles,
+					counter = this.addMove(pair[0], moves, types, abilities, teamDetails, species, isLead,
 						movePool, preferredType, role);
 				}
 			}
@@ -1140,7 +1137,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	): RandomTeamsTypes.RandomSet {
 		const species = this.dex.species.get(criteria.species);
 		const isLead = criteria.isLead;
-		const isDoubles = false;
 		let forme = species.name;
 
 		if (typeof species.battleOnly === 'string') {
@@ -1197,12 +1193,12 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		let moves: Set<string> 
 		let counter: MoveCounter
 		if (force) {
-			moves = this.randomConstrainedMoveset(lockedMoves, types, abilities, teamDetails, species, isLead, isDoubles, movePool,
+			moves = this.randomConstrainedMoveset(lockedMoves, types, abilities, teamDetails, species, isLead, movePool,
 				preferredType, role);
 			counter = this.newQueryMoves(moves, species, preferredType, abilities);
 		}
 		else {
-			moves = this.randomMoveset(types, abilities, teamDetails, species, isLead, isDoubles, Array.from(set.movepool),
+			moves = this.randomMoveset(types, abilities, teamDetails, species, isLead, Array.from(set.movepool),
 				preferredType, role);
 			counter = this.newQueryMoves(moves, species, preferredType, abilities);
 		}
@@ -1217,7 +1213,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			tempTeamDetails.sun = teamDetails.sun || (this.random() < .054 ? 1 : 0);
 			tempTeamDetails.rain = teamDetails.rain || (this.random() < .120 ? 1 : 0);
 			ability = this.getAbility(new Set(types), moves, abilities, counter, movePool, tempTeamDetails, species,
-			false, preferredType, role);
+			preferredType, role);
 		}
 
 		// Get items
