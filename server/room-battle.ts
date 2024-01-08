@@ -948,7 +948,6 @@ export class RoomBattle extends RoomGames.RoomGame<RoomBattlePlayer> {
 				void this.onEnd(this.logData!.winner);
 				if (this.players.every(p => p.name.startsWith('train') || p.name.startsWith('eval'))) {
 					this.clearPlayers();
-					console.log('DEINIT')
 				}
 			}
 			this.checkActive();
