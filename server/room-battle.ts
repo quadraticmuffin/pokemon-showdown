@@ -873,11 +873,11 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 			this.score = this.logData!.score;
 			this.inputLog = this.logData!.inputLog;
 			this.started = true;
-			void this.end(this.logData!.winner);
+			void this.end();
 			break;
 		}
 	}
-	end(winnerName: unknown) {
+	end() {
 		if (this.ended) return;
 		this.setEnded();
 		this.checkActive();
@@ -889,6 +889,18 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 				player.getUser()?.games.delete(this.roomid);
 			}
 		}
+	}
+	async updateLadder(p1score: number, winnerid: ID) {
+		this.room.rated = 0;
+		const winner = Users.get(winnerid);
+		if (winner && !winner.registered) {
+			this.room.sendUser(winner, '|askreg|' + winner.id);
+		}
+		const [score, p1rating, p2rating] = await Ladders(this.ladder).updateRating(
+			this.p1.name, this.p2.name, p1score, this.room
+		);
+		void this.logBattle(score, p1rating, p2rating);
+		Chat.runHandlers('onBattleRanked', this, winnerid, [p1rating, p2rating], [this.p1.id, this.p2.id]);
 	}
 	async logBattle(
 		p1score: number, p1rating: AnyObject | null = null, p2rating: AnyObject | null = null,
