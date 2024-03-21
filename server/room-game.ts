@@ -200,7 +200,9 @@ export abstract class RoomGame<PlayerClass extends RoomGamePlayer = RoomGamePlay
 			(player.id as string) = id;
 			player.name = name;
 			this.playerTable[player.id] = player;
-			this.room.auth.set(id, Users.PLAYER_SYMBOL);
+			if (this.room.roomid.startsWith('battle-') || this.room.roomid.startsWith('game-')) {
+				this.room.auth.set(id, Users.PLAYER_SYMBOL);
+			}
 
 			const user = typeof userOrName === 'string' ? Users.getExact(id) : userOrName;
 			if (user) {
@@ -241,6 +243,12 @@ export abstract class RoomGame<PlayerClass extends RoomGamePlayer = RoomGamePlay
 		}
 	}
 
+	/**
+	 * This is purely for cleanup, suitable for calling from `destroy()`.
+	 * You should make a different function, call it `end` or something,
+	 * to end a game properly. See BestOfGame for an example of an `end`
+	 * function.
+	 */
 	setEnded() {
 		if (this.ended) return;
 		(this.ended as boolean) = true;
@@ -256,7 +264,7 @@ export abstract class RoomGame<PlayerClass extends RoomGamePlayer = RoomGamePlay
 
 	renameRoom(roomid: RoomID) {
 		for (const player of this.players) {
-			const user = Users.get(player.id);
+			const user = player.getUser();
 			user?.games.delete(this.roomid);
 			user?.games.add(roomid);
 		}

@@ -93,6 +93,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 		},
 		onStart(pokemon) {
 			// Air Lock does not activate when Skill Swapped or when Neutralizing Gas leaves the field
+			pokemon.abilityState.ending = false; // Clear the ending flag
 			if (this.effectState.switchingIn) {
 				this.add('-ability', pokemon, 'Air Lock');
 				this.effectState.switchingIn = false;
@@ -100,6 +101,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			this.eachEvent('WeatherChange', this.effect);
 		},
 		onEnd(pokemon) {
+			pokemon.abilityState.ending = true;
 			this.eachEvent('WeatherChange', this.effect);
 		},
 		suppressWeather: true,
@@ -423,7 +425,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			if (!source || source === target || !target.hp || !move.totalDamage) return;
 			const lastAttackedBy = target.getLastAttackedBy();
 			if (!lastAttackedBy) return;
-			const damage = move.multihit ? move.totalDamage : lastAttackedBy.damage;
+			const damage = move.multihit && !move.smartTarget ? move.totalDamage : lastAttackedBy.damage;
 			if (target.hp <= target.maxhp / 2 && target.hp + damage > target.maxhp / 2) {
 				this.boost({spa: 1}, target, target);
 			}
@@ -537,6 +539,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 		},
 		onStart(pokemon) {
 			// Cloud Nine does not activate when Skill Swapped or when Neutralizing Gas leaves the field
+			pokemon.abilityState.ending = false; // Clear the ending flag
 			if (this.effectState.switchingIn) {
 				this.add('-ability', pokemon, 'Cloud Nine');
 				this.effectState.switchingIn = false;
@@ -544,6 +547,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			this.eachEvent('WeatherChange', this.effect);
 		},
 		onEnd(pokemon) {
+			pokemon.abilityState.ending = true;
 			this.eachEvent('WeatherChange', this.effect);
 		},
 		suppressWeather: true,
@@ -626,9 +630,6 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 	competitive: {
 		onAfterEachBoost(boost, target, source, effect) {
 			if (!source || target.isAlly(source)) {
-				if (effect.id === 'stickyweb') {
-					this.hint("Court Change Sticky Web counts as lowering your own Speed, and Competitive only affects stats lowered by foes.", true, source.side);
-				}
 				return;
 			}
 			let statsLowered = false;
@@ -887,9 +888,6 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 	defiant: {
 		onAfterEachBoost(boost, target, source, effect) {
 			if (!source || target.isAlly(source)) {
-				if (effect.id === 'stickyweb') {
-					this.hint("Court Change Sticky Web counts as lowering your own Speed, and Defiant only affects stats lowered by foes.", true, source.side);
-				}
 				return;
 			}
 			let statsLowered = false;
@@ -3429,7 +3427,8 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			// Protosynthesis is not affected by Utility Umbrella
 			if (this.field.isWeather('sunnyday')) {
 				pokemon.addVolatile('protosynthesis');
-			} else if (!pokemon.volatiles['protosynthesis']?.fromBooster) {
+			} else if (!pokemon.volatiles['protosynthesis']?.fromBooster && this.field.weather !== 'sunnyday') {
+				// Protosynthesis will not deactivite if Sun is suppressed, hence the direct ID check (isWeather respects supression)
 				pokemon.removeVolatile('protosynthesis');
 			}
 		},
@@ -3684,7 +3683,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			}
 		},
 		onAfterBoost(boost, target, source, effect) {
-			if (effect?.name === 'Intimidate') {
+			if (effect?.name === 'Intimidate' && boost.atk) {
 				this.boost({spe: 1});
 			}
 		},
@@ -4855,7 +4854,7 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 	},
 	terashell: {
 		onEffectiveness(typeMod, target, type, move) {
-			if (!target || target.baseSpecies.name !== 'Terapagos-Terastal') return;
+			if (!target || target.species.name !== 'Terapagos-Terastal') return;
 			if (this.effectState.resisted) return -1; // all hits of multi-hit move should be not very effective
 			if (move.category === 'Status') return;
 			if (!target.runImmunity(move.type)) return; // immunity has priority
@@ -4879,6 +4878,13 @@ export const Abilities: {[abilityid: string]: AbilityData} = {
 			if (pokemon.species.forme !== 'Terastal') {
 				this.add('-activate', pokemon, 'ability: Tera Shift');
 				pokemon.formeChange('Terapagos-Terastal', this.effect, true);
+				pokemon.baseMaxhp = Math.floor(Math.floor(
+					2 * pokemon.species.baseStats['hp'] + pokemon.set.ivs['hp'] + Math.floor(pokemon.set.evs['hp'] / 4) + 100
+				) * pokemon.level / 100 + 10);
+				const newMaxHP = pokemon.baseMaxhp;
+				pokemon.hp = newMaxHP - (pokemon.maxhp - pokemon.hp);
+				pokemon.maxhp = newMaxHP;
+				this.add('-heal', pokemon, pokemon.getHealth, '[silent]');
 			}
 		},
 		flags: {failroleplay: 1, noreceiver: 1, noentrain: 1, notrace: 1, failskillswap: 1, cantsuppress: 1, notransform: 1},
