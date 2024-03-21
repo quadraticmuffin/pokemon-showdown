@@ -1379,11 +1379,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 
 		while (baseSpeciesPool.length && pokemon.length < teamSize) {
 			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
-			const currentSpeciesPool: Species[] = [];
-			for (const poke of pokemonPool) {
-				const species = this.dex.species.get(poke);
-				if (species.baseSpecies === baseSpecies) currentSpeciesPool.push(species);
-			}
+			const currentSpeciesPool: Species[] = pokemonPool[baseSpecies].map((s) => this.dex.species.get(s));
 			const species = this.sample(currentSpeciesPool);
 			if (!species.exists) continue;
 
