@@ -1261,10 +1261,11 @@ export class Battle {
 		case 'switch':
 			for (let i = 0; i < this.sides.length; i++) {
 				const side = this.sides[i];
+				const opp_side = this.sides[(i+1)%2];
 				if (!side.pokemonLeft) continue;
 				const switchTable = side.active.map(pokemon => !!pokemon?.switchFlag);
 				if (switchTable.some(Boolean)) {
-					requests[i] = {forceSwitch: switchTable, side: side.getRequestData()};
+					requests[i] = {forceSwitch: switchTable, side: side.getRequestData(), opp_side: opp_side.getRequestData()};
 				}
 			}
 			break;
@@ -1272,17 +1273,19 @@ export class Battle {
 		case 'teampreview':
 			for (let i = 0; i < this.sides.length; i++) {
 				const side = this.sides[i];
+				const opp_side = this.sides[(i+1)%2];
 				const maxChosenTeamSize = this.ruleTable.pickedTeamSize || undefined;
-				requests[i] = {teamPreview: true, maxChosenTeamSize, side: side.getRequestData()};
+				requests[i] = {teamPreview: true, maxChosenTeamSize, side: side.getRequestData(), opp_side: opp_side.getRequestData()};
 			}
 			break;
 
 		default:
 			for (let i = 0; i < this.sides.length; i++) {
 				const side = this.sides[i];
+				const opp_side = this.sides[(i+1)%2];
 				if (!side.pokemonLeft) continue;
 				const activeData = side.active.map(pokemon => pokemon?.getMoveRequestData());
-				requests[i] = {active: activeData, side: side.getRequestData()};
+				requests[i] = {active: activeData, side: side.getRequestData(), opp_side: opp_side.getRequestData()};
 				if (side.allySide) {
 					requests[i].ally = side.allySide.getRequestData(true);
 				}
@@ -1295,7 +1298,7 @@ export class Battle {
 			if (requests[i]) {
 				if (!this.supportCancel || !multipleRequestsExist) requests[i].noCancel = true;
 			} else {
-				requests[i] = {wait: true, side: this.sides[i].getRequestData()};
+				requests[i] = {wait: true, side: this.sides[i].getRequestData(), opp_side: this.sides[(i+1)%2].getRequestData()};
 			}
 		}
 
