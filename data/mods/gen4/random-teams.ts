@@ -745,6 +745,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			);
 		case 'Reckless': case 'Rock Head':
 			return !counter.get('recoil');
+		case 'Shed Skin':
+			return !moves.has('rest');
 		case 'Skill Link':
 			return !counter.get('skilllink');
 		case 'Swarm':
@@ -777,6 +779,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		if (species.id === 'jynx') return 'Forewarn';
 		if (species.id === 'arcanine') return 'Intimidate';
 		if (species.id === 'blissey') return 'Natural Cure';
+		if (species.id === 'octillery') return 'Sniper';
 		if (species.id === 'yanmega') return (role === 'Fast Attacker') ? 'Speed Boost' : 'Tinted Lens';
 		if (species.id === 'absol') return 'Super Luck';
 		if (species.id === 'lanturn') return 'Volt Absorb';
