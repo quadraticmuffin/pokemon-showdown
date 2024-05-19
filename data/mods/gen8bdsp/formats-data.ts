@@ -946,7 +946,7 @@ export const FormatsData: {[k: string]: ModdedSpeciesFormatsData} = {
 		doublesTier: "DUU",
 	},
 	raikou: {
-		tier: "UUBL",
+		tier: "UU",
 		doublesTier: "DOU",
 	},
 	entei: {
@@ -976,7 +976,7 @@ export const FormatsData: {[k: string]: ModdedSpeciesFormatsData} = {
 		doublesTier: "DUber",
 	},
 	celebi: {
-		tier: "UUBL",
+		tier: "OU",
 		doublesTier: "DOU",
 	},
 	treecko: {

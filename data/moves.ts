@@ -3783,7 +3783,7 @@ export const Moves: {[moveid: string]: MoveData} = {
 					}
 				}
 				if (effect.effectType === 'Ability') {
-					this.add('-start', pokemon, 'Disable', pokemon.lastMove.name, '[from] ability: Cursed Body', '[of] ' + source);
+					this.add('-start', pokemon, 'Disable', pokemon.lastMove.name, '[from] ability: ' + effect.name, '[of] ' + source);
 				} else {
 					this.add('-start', pokemon, 'Disable', pokemon.lastMove.name);
 				}
@@ -8604,7 +8604,9 @@ export const Moves: {[moveid: string]: MoveData} = {
 				if ((effect?.id === 'zpower') || this.effectState.isZ) return damage;
 				return false;
 			},
-			onRestart(target, source) {
+			onRestart(target, source, effect) {
+				if (effect?.name === 'Psychic Noise') return;
+
 				this.add('-fail', target, 'move: Heal Block'); // Succeeds to supress downstream messages
 				if (!source.moveThisTurnResult) {
 					source.moveThisTurnResult = false;
