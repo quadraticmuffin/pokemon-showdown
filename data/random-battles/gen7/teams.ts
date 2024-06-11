@@ -62,9 +62,9 @@ const SETUP = [
 // Moves that shouldn't be the only STAB moves:
 const NO_STAB = [
 	'accelerock', 'aquajet', 'bulletpunch', 'clearsmog', 'dragontail', 'eruption', 'explosion',
-	'fakeout', 'firstimpression', 'flamecharge', 'futuresight', 'iceshard', 'icywind', 'incinerate', 'machpunch', 'nuzzle',
-	'pluck', 'poweruppunch', 'pursuit', 'quickattack', 'rapidspin', 'reversal', 'selfdestruct', 'shadowsneak', 'skyattack',
-	'skydrop', 'snarl', 'suckerpunch', 'uturn', 'watershuriken', 'vacuumwave', 'voltswitch', 'waterspout',
+	'fakeout', 'firstimpression', 'flamecharge', 'futuresight', 'iceshard', 'icywind', 'incinerate', 'infestation', 'machpunch',
+	'nuzzle', 'pluck', 'poweruppunch', 'pursuit', 'quickattack', 'rapidspin', 'reversal', 'selfdestruct', 'shadowsneak',
+	'skyattack', 'skydrop', 'snarl', 'suckerpunch', 'uturn', 'watershuriken', 'vacuumwave', 'voltswitch', 'waterspout',
 ];
 // Hazard-setting moves
 const HAZARDS = [
@@ -131,7 +131,7 @@ export class RandomGen7Teams extends RandomGen8Teams {
 				!counter.get('Ice') || (!moves.has('blizzard') && movePool.includes('freezedry')) ||
 				abilities.has('Refrigerate') && (movePool.includes('return') || movePool.includes('hypervoice'))
 			),
-			Normal: movePool => movePool.includes('boomburst'),
+			Normal: movePool => (movePool.includes('boomburst') || movePool.includes('hypervoice')),
 			Poison: (movePool, moves, abilities, types, counter) => !counter.get('Poison'),
 			Psychic: (movePool, moves, abilities, types, counter) => (
 				!counter.get('Psychic') && (
@@ -343,7 +343,7 @@ export class RandomGen7Teams extends RandomGen8Teams {
 			[['fierydance', 'firelash', 'lavaplume'], ['fireblast', 'magmastorm']],
 			[['flamethrower', 'flareblitz'], ['fireblast', 'overheat']],
 			['hornleech', 'woodhammer'],
-			[['gigadrain', 'leafstorm'], ['leafstorm', 'petaldance', 'powerwhip']],
+			[['gigadrain', 'leafstorm'], ['energyball', 'leafstorm', 'petaldance', 'powerwhip']],
 			['wildcharge', 'thunderbolt'],
 			['gunkshot', 'poisonjab'],
 			[['drainpunch', 'focusblast'], ['closecombat', 'highjumpkick', 'superpower']],
@@ -386,6 +386,18 @@ export class RandomGen7Teams extends RandomGen8Teams {
 		// Z-Conversion Porygon-Z
 		if (species.id === 'porygonz') {
 			this.incompatibleMoves(moves, movePool, 'shadowball', 'recover');
+		}
+
+		// Cull filler moves for otherwise fixed set Stealth Rock users
+		if (!teamDetails.stealthRock) {
+			if (species.id === 'registeel' && role === 'Staller') {
+				if (movePool.includes('thunderwave')) this.fastPop(movePool, movePool.indexOf('thunderwave'));
+				if (moves.size + movePool.length <= this.maxMoveCount) return;
+			}
+			if (species.baseSpecies === 'Wormadam' && role === 'Staller') {
+				if (movePool.includes('infestation')) this.fastPop(movePool, movePool.indexOf('infestation'));
+				if (moves.size + movePool.length <= this.maxMoveCount) return;
+			}
 		}
 	}
 
@@ -624,7 +636,7 @@ export class RandomGen7Teams extends RandomGen8Teams {
 
 		// Enforce Staller moves
 		if (role === 'Staller') {
-			const enforcedMoves = [...PROTECT_MOVES, 'toxic', 'wish'];
+			const enforcedMoves = [...PROTECT_MOVES, 'toxic'];
 			for (const move of enforcedMoves) {
 				if (movePool.includes(move)) {
 					counter = this.addMove(move, moves, types, abilities, teamDetails, species, isLead,
@@ -1089,8 +1101,8 @@ export class RandomGen7Teams extends RandomGen8Teams {
 		}
 		if (
 			(role === 'Fast Support' || moves.has('stickyweb')) && isLead && defensiveStatTotal < 255 &&
-			!counter.get('recovery') && !moves.has('defog') && (!counter.get('recoil') || ability === 'Rock Head') &&
-			ability !== 'Regenerator'
+			!counter.get('recovery') && (counter.get('hazards') || counter.get('setup')) &&
+			(!counter.get('recoil') || ability === 'Rock Head')
 		) return 'Focus Sash';
 
 		// Default Items
@@ -1242,9 +1254,7 @@ export class RandomGen7Teams extends RandomGen8Teams {
 
 		// Prepare optimal HP
 		const srImmunity = ability === 'Magic Guard';
-		let srWeakness = srImmunity ? 0 : this.dex.getEffectiveness('Rock', species);
-		// Crash damage move users want an odd HP to survive two misses
-		if (['highjumpkick', 'jumpkick'].some(m => moves.has(m))) srWeakness = 2;
+		const srWeakness = srImmunity ? 0 : this.dex.getEffectiveness('Rock', species);
 		while (evs.hp > 1) {
 			const hp = Math.floor(Math.floor(2 * species.baseStats.hp + ivs.hp + Math.floor(evs.hp / 4) + 100) * level / 100 + 10);
 			if (moves.has('substitute') && !['Black Sludge', 'Leftovers'].includes(item)) {
@@ -1258,9 +1268,13 @@ export class RandomGen7Teams extends RandomGen8Teams {
 			} else if (moves.has('bellydrum') && (item === 'Sitrus Berry' || ability === 'Gluttony')) {
 				// Belly Drum should activate Sitrus Berry
 				if (hp % 2 === 0) break;
+			} else if (['highjumpkick', 'jumpkick'].some(m => moves.has(m))) {
+				// Crash damage move users want an odd HP to survive two misses
+				if (hp % 2 > 0) break;
 			} else {
 				// Maximize number of Stealth Rock switch-ins
-				if (srWeakness <= 0 || ability === 'Regenerator' || ['Black Sludge', 'Leftovers', 'Life Orb'].includes(item)) break;
+				if (srWeakness <= 0 || ability === 'Regenerator') break;
+				if (srWeakness === 1 && ['Black Sludge', 'Leftovers', 'Life Orb'].includes(item)) break;
 				if (item !== 'Sitrus Berry' && hp % (4 / srWeakness) > 0) break;
 				// Minimise number of Stealth Rock switch-ins to activate Sitrus Berry
 				if (item === 'Sitrus Berry' && hp % (4 / srWeakness) === 0) break;

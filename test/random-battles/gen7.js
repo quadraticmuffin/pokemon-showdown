@@ -67,14 +67,14 @@ describe('[Gen 7] Random Battle (slow)', () => {
 			if (species.unreleasedHidden) abilities.delete(species.abilities.H);
 			for (const set of sets) {
 				const role = set.role;
-				const moves = new Set(set.movepool.map(m => dex.moves.get(m).id));
+				const moves = new Set(Array.from(set.movepool));
 				const preferredTypes = set.preferredTypes;
 				let teamDetails = {};
 				// Go through all possible teamDetails combinations, if necessary
 				for (let j = 0; j < rounds; j++) {
 					// Generate a moveset as the lead, teamDetails is always empty for this
 					const preferredType = preferredTypes ? preferredTypes[j % preferredTypes.length] : '';
-					const movePool = set.movepool.map(m => dex.moves.get(m).id);
+					const movePool = Array.from(set.movepool);
 					const moveSet = generator.randomMoveset(types, abilities, {}, species, true, movePool, preferredType, role);
 					for (const move of moveSet) moves.delete(move);
 					if (!moves.size) break;
@@ -85,14 +85,13 @@ describe('[Gen 7] Random Battle (slow)', () => {
 						const stickyWeb = Math.floor(i / 4) % 2;
 						teamDetails = {defog, stealthRock, stickyWeb};
 						// randomMoveset() deletes moves from the movepool, so recreate it every time
-						const movePool = set.movepool.map(m => dex.moves.get(m).id);
+						const movePool = Array.from(set.movepool);
 						const moveSet = generator.randomMoveset(types, abilities, teamDetails, species, false, movePool, preferredType, role);
 						for (const move of moveSet) moves.delete(move);
 						if (!moves.size) break;
 					}
 					if (!moves.size) break;
 				}
-				if (moves.size) console.log(moves, species);
 				assert(!moves.size, species);
 			}
 		}
@@ -134,12 +133,6 @@ describe('[Gen 7] Random Battle (slow)', () => {
 	});
 
 	it('should prevent double Hidden Power', () => testHiddenPower('thundurustherian', options));
-
-	it('should give Meganium STAB', () => {
-		testSet('meganium', options, set => {
-			assert(set.moves.includes('gigadrain'), `Meganium: got ${set.moves}`);
-		});
-	});
 
 	it('should never give Xerneas Assault Vest', () => {
 		testSet('xerneas', options, set => assert.notEqual(set.item, 'Assault Vest'));

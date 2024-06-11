@@ -105,7 +105,7 @@
         ]
     },
     "fearow": {
-        "level": 82,
+        "level": 81,
         "sets": [
             {
                 "role": "Fast Attacker",
@@ -251,7 +251,7 @@
         ]
     },
     "dugtrio": {
-        "level": 80,
+        "level": 79,
         "sets": [
             {
                 "role": "Wallbreaker",
@@ -509,7 +509,7 @@
         ]
     },
     "hypno": {
-        "level": 87,
+        "level": 88,
         "sets": [
             {
                 "role": "Bulky Setup",
@@ -595,7 +595,7 @@
         ]
     },
     "lickitung": {
-        "level": 93,
+        "level": 94,
         "sets": [
             {
                 "role": "Bulky Attacker",
@@ -737,7 +737,7 @@
         ]
     },
     "pinsir": {
-        "level": 82,
+        "level": 81,
         "sets": [
             {
                 "role": "Setup Sweeper",
@@ -1119,7 +1119,7 @@
         ]
     },
     "bellossom": {
-        "level": 90,
+        "level": 91,
         "sets": [
             {
                 "role": "Bulky Attacker",
@@ -1179,7 +1179,7 @@
         ]
     },
     "aipom": {
-        "level": 92,
+        "level": 93,
         "sets": [
             {
                 "role": "Fast Attacker",
@@ -1387,8 +1387,8 @@
                 "movepool": ["doubleedge", "earthquake", "explosion", "hiddenpowerrock", "irontail", "rest", "roar", "toxic"]
             },
             {
-                "role": "Bulky Support",
-                "movepool": ["doubleedge", "earthquake", "hiddenpowerrock", "rest", "sleeptalk"]
+                "role": "Staller",
+                "movepool": ["doubleedge", "earthquake", "hiddenpowerrock", "protect", "toxic"]
             }
         ]
     },
@@ -1479,7 +1479,7 @@
         ]
     },
     "ursaring": {
-        "level": 81,
+        "level": 82,
         "sets": [
             {
                 "role": "Wallbreaker",
@@ -1509,7 +1509,7 @@
         ]
     },
     "piloswine": {
-        "level": 88,
+        "level": 87,
         "sets": [
             {
                 "role": "Staller",
@@ -1568,7 +1568,7 @@
         ]
     },
     "skarmory": {
-        "level": 76,
+        "level": 75,
         "sets": [
             {
                 "role": "Bulky Support",
@@ -1894,7 +1894,7 @@
         ]
     },
     "shiftry": {
-        "level": 89,
+        "level": 90,
         "sets": [
             {
                 "role": "Setup Sweeper",
@@ -1965,7 +1965,7 @@
         ]
     },
     "vigoroth": {
-        "level": 85,
+        "level": 84,
         "sets": [
             {
                 "role": "Bulky Setup",
@@ -1976,10 +1976,6 @@
     "slaking": {
         "level": 79,
         "sets": [
-            {
-                "role": "Wallbreaker",
-                "movepool": ["doubleedge", "earthquake", "focuspunch", "return", "shadowball"]
-            },
             {
                 "role": "Fast Attacker",
                 "movepool": ["doubleedge", "earthquake", "hyperbeam", "return", "shadowball"]
@@ -2045,7 +2041,7 @@
         ]
     },
     "delcatty": {
-        "level": 95,
+        "level": 96,
         "sets": [
             {
                 "role": "Bulky Support",
@@ -2054,6 +2050,10 @@
             {
                 "role": "Generalist",
                 "movepool": ["batonpass", "bodyslam", "healbell", "protect", "wish"]
+            },
+            {
+                "role": "Setup Sweeper",
+                "movepool": ["batonpass", "calmmind", "icebeam", "thunderbolt"]
             }
         ]
     },
@@ -2245,7 +2245,7 @@
         ]
     },
     "grumpig": {
-        "level": 84,
+        "level": 83,
         "sets": [
             {
                 "role": "Setup Sweeper",
@@ -2373,7 +2373,7 @@
         ]
     },
     "crawdaunt": {
-        "level": 90,
+        "level": 89,
         "sets": [
             {
                 "role": "Fast Attacker",
@@ -2680,7 +2680,7 @@
         ]
     },
     "rayquaza": {
-        "level": 72,
+        "level": 71,
         "sets": [
             {
                 "role": "Setup Sweeper",
@@ -2714,7 +2714,7 @@
         ]
     },
     "deoxys": {
-        "level": 73,
+        "level": 72,
         "sets": [
             {
                 "role": "Wallbreaker",
@@ -2724,7 +2724,7 @@
         ]
     },
     "deoxysattack": {
-        "level": 72,
+        "level": 71,
         "sets": [
             {
                 "role": "Wallbreaker",
