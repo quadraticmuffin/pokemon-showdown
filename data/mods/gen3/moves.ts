@@ -2,7 +2,7 @@
  * Gen 3 moves
  */
 
-export const Moves: {[k: string]: ModdedMoveData} = {
+export const Moves: import('../../../sim/dex-moves').ModdedMoveDataTable = {
 	absorb: {
 		inherit: true,
 		pp: 20,
@@ -582,7 +582,7 @@ export const Moves: {[k: string]: ModdedMoveData} = {
 	},
 	sketch: {
 		inherit: true,
-		flags: {bypasssub: 1, failencore: 1, noassist: 1, failmimic: 1},
+		flags: {bypasssub: 1, failencore: 1, noassist: 1, failmimic: 1, nosketch: 1},
 	},
 	sleeptalk: {
 		inherit: true,
@@ -640,7 +640,7 @@ export const Moves: {[k: string]: ModdedMoveData} = {
 	},
 	struggle: {
 		inherit: true,
-		flags: {contact: 1, protect: 1, noassist: 1, failencore: 1, failmimic: 1},
+		flags: {contact: 1, protect: 1, noassist: 1, failencore: 1, failmimic: 1, nosketch: 1},
 		accuracy: 100,
 		recoil: [1, 4],
 		struggleRecoil: false,

@@ -3,7 +3,7 @@ import {changeSet, getName, enemyStaff, PSEUDO_WEATHERS} from "./scripts";
 
 const STRONG_WEATHERS = ['desolateland', 'primordialsea', 'deltastream', 'deserteddunes', 'millenniumcastle'];
 
-export const Abilities: {[k: string]: ModdedAbilityData} = {
+export const Abilities: import('../../../sim/dex-abilities').ModdedAbilityDataTable = {
 	/*
 	// Example
 	abilityid: {
@@ -1609,6 +1609,7 @@ export const Abilities: {[k: string]: ModdedAbilityData} = {
 	// Merritty
 	endround: {
 		shortDesc: "Clears everything.",
+		desc: "When this Pokemon switches in, all weather, terrains, field conditions, entry hazards, stat stage changes, and volatile status conditions are removed from the field.",
 		name: "End Round",
 		onStart(pokemon) {
 			if (this.suppressingAbility(pokemon)) return;
@@ -1664,7 +1665,7 @@ export const Abilities: {[k: string]: ModdedAbilityData} = {
 
 	// Meteordash
 	tatsuglare: {
-		shortDesc: "Fur Coat + All moves hit off of Sp. Atk stat.",
+		shortDesc: "Fur Coat + All of the user's moves use the Special Attack stat.",
 		name: "TatsuGlare",
 		onModifyMove(move, pokemon, target) {
 			if (move.category !== "Status") move.overrideOffensiveStat = 'spa';
@@ -1872,10 +1873,10 @@ export const Abilities: {[k: string]: ModdedAbilityData} = {
 
 	// Pastor Gigas
 	godsmercy: {
-		shortDesc: "Summons Misty Surge and cures the team's status conditions on switch-in.",
+		shortDesc: "Summons Grassy Terrain and cures the team's status conditions on switch-in.",
 		name: "God's Mercy",
 		onStart(source) {
-			this.field.setTerrain('mistyterrain');
+			this.field.setTerrain('grassyterrain');
 			const allies = [...source.side.pokemon, ...source.side.allySide?.pokemon || []];
 			for (const ally of allies) {
 				if (ally !== source && ally.hasAbility('sapsipper')) {
@@ -2864,9 +2865,6 @@ export const Abilities: {[k: string]: ModdedAbilityData} = {
 				if (!pokemon.m.bag) {
 					pokemon.m.bag = ['Blast Seed', 'Oran Berry', 'Petrify Orb', 'Luminous Orb', 'Reviver Seed'];
 				}
-			},
-			onEnd(target) {
-				delete target.volatiles['treasurebag'];
 			},
 			onResidual(pokemon, source, effect) {
 				if (!pokemon.m.bag) {

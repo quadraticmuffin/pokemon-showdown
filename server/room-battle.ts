@@ -18,6 +18,7 @@ import {RoomGamePlayer, RoomGame} from "./room-game";
 import type {Tournament} from './tournaments/index';
 import type {RoomSettings} from './rooms';
 import type {BestOfGame} from './room-battle-bestof';
+import type {GameTimerSettings} from '../sim/dex-formats';
 
 type ChannelIndex = 0 | 1 | 2 | 3 | 4;
 export type PlayerIndex = 1 | 2 | 3 | 4;
@@ -1202,7 +1203,8 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 			this.room.title = `${this.p1.name} vs. ${this.p2.name}`;
 		}
 		this.room.send(`|title|${this.room.title}`);
-		const suspectTest = Chat.plugins['suspect-tests']?.suspectTests[this.format];
+		const suspectTest = Chat.plugins['suspect-tests']?.suspectTests[this.format] ||
+			Chat.plugins['suspect-tests']?.suspectTests.suspects[this.format];
 		if (suspectTest) {
 			const format = Dex.formats.get(this.format);
 			this.room.add(

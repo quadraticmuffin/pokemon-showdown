@@ -909,13 +909,9 @@ export async function getOpponent(link: string, submitter: ID): Promise<string |
 		}
 	}
 	if (!room) {
-		const replayUrl = Net(`https://${Config.routes.replays}/${link.slice(link.indexOf('-') + 1)}.json`);
-		try {
-			const body = await replayUrl.get();
-			const data = JSON.parse(body);
-			return data.p1id === submitter ? data.p2id : data.p1id;
-		} catch {
-			return null;
+		const battleData = await getBattleLog(link);
+		if (battleData) {
+			return battleData.players.p1 === submitter ? battleData.players.p2 : battleData.players.p1;
 		}
 	}
 	return null;
@@ -975,48 +971,61 @@ export async function getBattleLog(battle: string, noReplay = false): Promise<Ba
 	}
 	if (noReplay) return null;
 	battle = battle.replace(`battle-`, ''); // don't wanna strip passwords
-	try {
-		const raw = await Net(`https://${Config.routes.replays}/${battle}.json`).get();
-		const data = JSON.parse(raw);
-		if (data.log?.length) {
-			const log = data.log.split('\n');
-			const players: BattleInfo['players'] = {} as any;
-			for (const [i, id] of data.players.entries()) {
-				players[`p${i + 1}` as SideID] = toID(id);
-			}
-			const chat = [];
-			const mons: BattleInfo['pokemon'] = {};
-			for (const line of log) {
-				if (line.startsWith('|c|')) {
-					chat.push(line);
-				} else if (line.startsWith('|switch|')) {
-					const [, , playerWithNick, speciesWithGender] = line.split('|');
-					const species = speciesWithGender.split(',')[0].trim(); // should always exist
-					let [slot, name] = playerWithNick.split(':');
-					slot = slot.slice(0, -1); // p2a -> p2
-					// safe to not check here bc this should always exist in the players table.
-					// if it doesn't, there's a problem
-					const id = players[slot as SideID] as string;
-					if (!mons[id]) mons[id] = [];
-					name = name?.trim() || "";
-					const setId = `${name || ""}-${species}`;
-					if (seenPokemon.has(setId)) continue;
-					seenPokemon.add(setId);
-					mons[id].push({
-						species, // don't want to see a name if it's the same as the species
-						name: name === species ? undefined : name,
-					});
-				}
-			}
-			return {
-				log: chat,
-				title: `${players.p1} vs ${players.p2}`,
-				url: `https://${Config.routes.replays}/${battle}`,
-				players,
-				pokemon: mons,
-			};
+
+	// let's get the replay info
+	let data;
+	if (Rooms.Replays.db) { // direct conn exists, use it
+		if (battle.endsWith('pw')) {
+			battle = battle.slice(0, battle.lastIndexOf("-", battle.length - 2));
 		}
-	} catch {}
+		data = await Rooms.Replays.get(battle);
+	} else {
+		// call out to replays db
+		try {
+			const raw = await Net(`https://${Config.routes.replays}/${battle}.json`).get();
+			data = JSON.parse(raw);
+		} catch {}
+	}
+
+	// parse
+	if (data?.log?.length) {
+		const log = data.log.split('\n');
+		const players: BattleInfo['players'] = {} as any;
+		for (const [i, id] of data.players.entries()) {
+			players[`p${i + 1}` as SideID] = toID(id);
+		}
+		const chat = [];
+		const mons: BattleInfo['pokemon'] = {};
+		for (const line of log) {
+			if (line.startsWith('|c|')) {
+				chat.push(line);
+			} else if (line.startsWith('|switch|')) {
+				const [, , playerWithNick, speciesWithGender] = line.split('|');
+				const species = speciesWithGender.split(',')[0].trim(); // should always exist
+				let [slot, name] = playerWithNick.split(':');
+				slot = slot.slice(0, -1); // p2a -> p2
+				// safe to not check here bc this should always exist in the players table.
+				// if it doesn't, there's a problem
+				const id = players[slot as SideID] as string;
+				if (!mons[id]) mons[id] = [];
+				name = name?.trim() || "";
+				const setId = `${name || ""}-${species}`;
+				if (seenPokemon.has(setId)) continue;
+				seenPokemon.add(setId);
+				mons[id].push({
+					species, // don't want to see a name if it's the same as the species
+					name: name === species ? undefined : name,
+				});
+			}
+		}
+		return {
+			log: chat,
+			title: `${players.p1} vs ${players.p2}`,
+			url: `https://${Config.routes.replays}/${battle}`,
+			players,
+			pokemon: mons,
+		};
+	}
 	return null;
 }
 
@@ -1337,30 +1346,28 @@ export const textTickets: {[k: string]: TextTicketInfo} = {
 			buf += `<p><strong>Battle links given:</strong><p>`;
 			links = links.filter((url, i) => links.indexOf(url) === i);
 			buf += links.map(uri => Chat.formatText(`<<${uri}>>`)).join(', ');
-			const battleRooms = links.map(r => Rooms.get(r)).filter(room => room?.battle) as GameRoom[];
-			if (battleRooms.length) {
-				buf += `<div class="infobox"><strong>Names in given battles:</strong><hr />`;
-				for (const room of battleRooms) {
-					const names = [];
-					for (const id in room.battle!.playerTable) {
-						const user = Users.get(id);
-						if (!user) continue;
-						const team = await room.battle!.getTeam(user);
-						if (team) {
-							const teamNames = team.map(p => (
-								p.name !== p.species ? Utils.html`${p.name} (${p.species})` : p.species
-							));
-							names.push(`<strong>${user.id}:</strong> ${teamNames.join(', ')}`);
-						}
-					}
-					if (names.length) {
-						buf += `<a href="/${room.roomid}">${room.title}</a><br />`;
-						buf += names.join('<br />');
-						buf += `<hr />`;
+			buf += `<div class="infobox"><strong>Names in given battles:</strong><hr />`;
+			for (const link of links) {
+				const names = [];
+				const roomData = await getBattleLog(link);
+				if (!roomData) continue;
+				for (const id of Object.values(roomData.players)) {
+					const user = Users.get(id)?.name || id;
+					const team = roomData.pokemon[id];
+					if (team) {
+						const teamNames = team.map(p => (
+							p.name !== p.species ? Utils.html`${p.name} (${p.species})` : p.species
+						));
+						names.push(`<strong>${user}:</strong> ${teamNames.join(', ')}`);
 					}
 				}
-				buf += `</div>`;
+				if (names.length) {
+					buf += `<a href="/${getBattleLinks(link)[0]}">${roomData.title}</a><br />`;
+					buf += names.join('<br />');
+					buf += `<hr />`;
+				}
 			}
+			buf += `</div>`;
 			return buf;
 		},
 		onSubmit(ticket, text, submitter, conn) {

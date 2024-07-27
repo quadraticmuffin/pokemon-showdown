@@ -1,6 +1,6 @@
 /**
  * Random Battles chat-plugin
- * Written by Kris with inspiration from sirDonovan and The Immortal
+ * Written by dhelmise with inspiration from sirDonovan and The Immortal
  *
  * Set probability code written by Annika
  */
@@ -160,9 +160,11 @@ function getSets(species: string | Species, format: string | Format = 'gen9rando
 	format = Dex.formats.get(format);
 	species = dex.species.get(species);
 	const isDoubles = format.gameType === 'doubles';
-	const isBaby = format.team === 'randomBaby';
+	let folderName = format.mod;
+	if (format.team === 'randomBaby') folderName += 'baby';
+	if (species.isNonstandard === 'CAP') folderName += 'cap';
 	const setsFile = JSON.parse(
-		FS(`data/random-battles/${format.mod}${isBaby ? 'baby' : ''}/${isDoubles ? 'doubles-' : ''}sets.json`)
+		FS(`data/random-battles/${folderName}/${isDoubles ? 'doubles-' : ''}sets.json`)
 			.readIfExistsSync() || '{}'
 	);
 	const data = setsFile[species.id];
@@ -329,7 +331,7 @@ function battleFactorySets(species: string | Species, tier: string | null, gen =
 				buf += `<details><summary>Set ${i + 1} (${set.weight}%)</summary>`;
 				buf += `<ul style="list-style-type:none;padding-left:0;">`;
 				buf += `<li>${Dex.forFormat(format).species.get(set.species).name} @ ${set.item.map(formatItem).join(" / ")}</li>`;
-				buf += `<li>Ability: ${formatAbility(set.ability)}</li>`;
+				buf += `<li>Ability: ${set.ability.map(formatAbility).join(" / ")}</li>`;
 				buf += `<li>Level: 50</li>`;
 				buf += `<li>Tera Type: ${set.teraType.map(formatType).join(' / ')}</li>`;
 				if (set.evs) {
@@ -536,7 +538,11 @@ export const commands: Chat.ChatCommands = {
 						} else if (([2, 3, 4, 5, 6, 7].includes(dex.gen)) && set.preferredTypes) {
 							buf += `<b>Preferred Type${Chat.plural(set.preferredTypes)}</b>: ${set.preferredTypes.join(', ')}<br/>`;
 						}
-						buf += `<b>Moves</b>: ${set.movepool.sort().map(formatMove).join(', ')}</details>`;
+						buf += `<b>Moves</b>: ${set.movepool.sort().map(formatMove).join(', ')}<br/>`;
+						if (set.abilities) {
+							buf += `<b>Abilit${Chat.plural(set.abilities, 'ies', 'y')}</b>: ${set.abilities.sort().join(', ')}`;
+						}
+						buf += '</details>';
 						setCount++;
 					}
 					movesets.push(buf);
