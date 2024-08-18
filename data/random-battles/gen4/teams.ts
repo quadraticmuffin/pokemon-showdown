@@ -1065,17 +1065,18 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Check which sets are possible based on criteria moves
 		for (const set of sets) {
 			const setHasHp = set.movepool.some(m => m.startsWith('hiddenpower'));
+			const ability_ids = set.abilities!.map(toID);
 			if (oldMoves.every(m => (m === 'hiddenpower' && setHasHp) || set.movepool.includes(m))) {
-				if (oldAbility && set.abilities!.includes(oldAbility)) {
+				if (!oldAbility || ability_ids.includes(oldAbility)) {
 					possibleSets.push(set);
 				}
 			}
 		}
 		if (possibleSets.length === 0) {
-			console.log(`NO SETS POSSIBLE MATCHING MOVEPOOL ${oldMoves} FOR ${criteria.species}`);
+			console.log(`NO SETS POSSIBLE MATCHING MOVEPOOL ${oldMoves} AND ABILITY ${oldAbility} FOR ${criteria.species}`);
 			console.log('POSSIBLE SETS:');
 			for (const set of sets) {
-				console.log(`${set.movepool}`);
+				console.log(`${set.movepool} | ${set.abilities}`);
 				possibleSets.push(set);
 			}
 		}
@@ -1287,52 +1288,46 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		};
 	}
 
+	populateTeamDetails(set: SetCriteria | RandomTeamsTypes.RandomSet, teamDetails: RandomTeamsTypes.TeamDetails) {
+		if (set.ability === 'Snow Warning' || set.moves.includes('hail')) teamDetails.hail = 1;
+		if (set.ability === 'Drizzle' || set.moves.includes('raindance')) teamDetails.rain = 1;
+		if (set.ability === 'Sand Stream') teamDetails.sand = 1;
+		if (set.ability === 'Drought' || set.moves.includes('sunnyday')) teamDetails.sun = 1;
+		if (set.moves.includes('aromatherapy') || set.moves.includes('healbell')) teamDetails.statusCure = 1;
+		if (set.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
+		if (set.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
+		if (set.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
+		if (set.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
+		if (set.moves.includes('reflect') && set.moves.includes('lightscreen')) teamDetails.screens = 1;
+	}
+
 	randomTeamFromPartial(oldSets: SetCriteria[], teamSize: number) {
 		const seed = this.prng.seed;
 		const pokemon: RandomTeamsTypes.RandomSet[] = [];
 
 		const baseFormes: {[k: string]: number} = {};
-		const tierCount: {[k: string]: number} = {};
 		const typeCount: {[k: string]: number} = {};
-		const typeComboCount: {[k: string]: number} = {};
 		const typeWeaknesses: {[k: string]: number} = {};
 		const typeDoubleWeaknesses: {[k: string]: number} = {};
 		const teamDetails: RandomTeamsTypes.TeamDetails = {};
+		let numMaxLevelPokemon = 0;
 
 		const pokemonList = Object.keys(this.randomSets);
 		const [pokemonPool, baseSpeciesPool] = this.getPokemonPool(``, pokemon, false, pokemonList);
 		// Dynamically scale limits for different team sizes. The default and minimum value is 1.
 		const limitFactor = Math.round(teamSize / 6) || 1;
 
-		//pre-populate teamDetails
+		//pre-populate teamDetails + other info for known details
 		for (const oldSet of oldSets) {
-			if (oldSet.ability === 'Snow Warning' || oldSet.moves.includes('hail')) teamDetails.hail = 1;
-			if (oldSet.ability === 'Drizzle' || oldSet.moves.includes('raindance')) teamDetails.rain = 1;
-			if (oldSet.ability === 'Sand Stream') teamDetails.sand = 1;
-			if (oldSet.ability === 'Drought' || oldSet.moves.includes('sunnyday')) teamDetails.sun = 1;
-			if (oldSet.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
-			if (oldSet.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
-			if (oldSet.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
-			if (oldSet.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
-			if (oldSet.moves.includes('reflect') && oldSet.moves.includes('lightscreen')) teamDetails.screens = 1;
-		}
-		for (const oldSet of oldSets) {
+			this.populateTeamDetails(oldSet, teamDetails);
 			const species = this.dex.species.get(oldSet.species);
 			const baseSpeciesIndex = baseSpeciesPool.indexOf(species.baseSpecies);
 			this.fastPop(baseSpeciesPool, baseSpeciesIndex);
 			baseFormes[species.baseSpecies] = 1;
 
 			// Because old Pokemon have already passed all checks, we can increment our counters
-			// Increment tier counter
-			const tier = species.tier;
-			if (tierCount[tier]) {
-				tierCount[tier]++;
-			} else {
-				tierCount[tier] = 1;
-			}
 
 			const types = species.types;
-			let typeCombo = types.slice().sort().join();
 			// Increment type counters
 			for (const typeName of types) {
 				if (typeName in typeCount) {
@@ -1340,11 +1335,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				} else {
 					typeCount[typeName] = 1;
 				}
-			}
-			if (typeCombo in typeComboCount) {
-				typeComboCount[typeCombo]++;
-			} else {
-				typeComboCount[typeCombo] = 1;
 			}
 			// Increment weakness counter
 			for (const typeName of this.dex.types.names()) {
@@ -1356,25 +1346,29 @@ export class RandomGen4Teams extends RandomGen5Teams {
 					typeDoubleWeaknesses[typeName]++;
 				}
 			}
+		}
+		// Generate unseen data for known Pokemon
+		for (const oldSet of oldSets) {
 			const newSet = this.randomConstrainedSet(
 				oldSet,
 				teamDetails,
 				10
 			)
-			
+
 			pokemon.push(newSet);
+			
+			// Count Dry Skin as a Fire weakness
+			const species = this.dex.species.get(oldSet.species);
+			if (newSet.ability === 'Dry Skin' && this.dex.getEffectiveness('Fire', species) === 0) typeWeaknesses['Fire']++;
+
+			// Increment level 100 counter
+			if (newSet.level === 100) numMaxLevelPokemon++;
+
 			// Team details
-			if (newSet.ability === 'Snow Warning' || newSet.moves.includes('hail')) teamDetails.hail = 1;
-			if (newSet.ability === 'Drizzle' || newSet.moves.includes('raindance')) teamDetails.rain = 1;
-			if (newSet.ability === 'Sand Stream') teamDetails.sand = 1;
-			if (newSet.ability === 'Drought' || newSet.moves.includes('sunnyday')) teamDetails.sun = 1;
-			if (newSet.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
-			if (newSet.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
-			if (newSet.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
-			if (newSet.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
-			if (newSet.moves.includes('reflect') && newSet.moves.includes('lightscreen')) teamDetails.screens = 1;
+			this.populateTeamDetails(newSet, teamDetails);
 		}
 
+		// Generate new Pokemon
 		while (baseSpeciesPool.length && pokemon.length < teamSize) {
 			const baseSpecies = this.sampleNoReplace(baseSpeciesPool);
 			const currentSpeciesPool: Species[] = pokemonPool[baseSpecies].map((s) => this.dex.species.get(s));
@@ -1387,13 +1381,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			// Illusion shouldn't be in the last slot
 			if (species.name === 'Zoroark' && pokemon.length >= (teamSize - 1)) continue;
 
-			const tier = species.tier;
-
-			// Limit two Pokemon per tier
-			if (tierCount[tier] >= 2 * limitFactor) continue;
-
 			const types = species.types;
-			const typeCombo = types.slice().sort().join();
 
 			let skip = false;
 
@@ -1426,8 +1414,16 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (skip) continue;
 
-			// Limit one of any type combination
-			if (typeComboCount[typeCombo] >= 1 * limitFactor) continue;
+			// Count Dry Skin as a Fire weakness
+			if (this.dex.getEffectiveness('Fire', species) === 0 && Object.values(species.abilities).includes('Dry Skin')) {
+				if (!typeWeaknesses['Fire']) typeWeaknesses['Fire'] = 0;
+				if (typeWeaknesses['Fire'] >= 3 * limitFactor) continue;
+			}
+
+			// Limit one level 100 Pokemon
+			if (!this.adjustLevel && (this.getLevel(species) === 100) && numMaxLevelPokemon >= limitFactor) {
+				continue;
+			}
 
 			const set = this.randomSet(species, teamDetails, pokemon.length === 0);
 
@@ -1440,13 +1436,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			// Now that our Pokemon has passed all checks, we can increment our counters
 			baseFormes[species.baseSpecies] = 1;
 
-			// Increment tier counter
-			if (tierCount[tier]) {
-				tierCount[tier]++;
-			} else {
-				tierCount[tier] = 1;
-			}
-
 			// Increment type counters
 			for (const typeName of types) {
 				if (typeName in typeCount) {
@@ -1455,11 +1444,6 @@ export class RandomGen4Teams extends RandomGen5Teams {
 					typeCount[typeName] = 1;
 				}
 			}
-			if (typeCombo in typeComboCount) {
-				typeComboCount[typeCombo]++;
-			} else {
-				typeComboCount[typeCombo] = 1;
-			}
 
 			// Increment weakness counter
 			for (const typeName of this.dex.types.names()) {
@@ -1467,18 +1451,19 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				if (this.dex.getEffectiveness(typeName, species) > 0) {
 					typeWeaknesses[typeName]++;
 				}
+				if (this.dex.getEffectiveness(typeName, species) > 1) {
+					typeDoubleWeaknesses[typeName]++;
+				}
 			}
 
+			// Count Dry Skin as a Fire weakness
+			if (set.ability === 'Dry Skin' && this.dex.getEffectiveness('Fire', species) === 0) typeWeaknesses['Fire']++;
+
+			// Increment level 100 counter
+			if (set.level === 100) numMaxLevelPokemon++;
+
 			// Team details
-			if (set.ability === 'Snow Warning' || set.moves.includes('hail')) teamDetails.hail = 1;
-			if (set.ability === 'Drizzle' || set.moves.includes('raindance')) teamDetails.rain = 1;
-			if (set.ability === 'Sand Stream') teamDetails.sand = 1;
-			if (set.ability === 'Drought' || set.moves.includes('sunnyday')) teamDetails.sun = 1;
-			if (set.moves.includes('spikes')) teamDetails.spikes = (teamDetails.spikes || 0) + 1;
-			if (set.moves.includes('stealthrock')) teamDetails.stealthRock = 1;
-			if (set.moves.includes('toxicspikes')) teamDetails.toxicSpikes = 1;
-			if (set.moves.includes('rapidspin')) teamDetails.rapidSpin = 1;
-			if (set.moves.includes('reflect') && set.moves.includes('lightscreen')) teamDetails.screens = 1;
+			this.populateTeamDetails(set, teamDetails);
 		}
 		if (pokemon.length < teamSize && pokemon.length < 12) {
 			throw new Error(`Could not build a random team for ${this.format} (seed=${seed})`);

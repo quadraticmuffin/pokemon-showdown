@@ -1,5 +1,5 @@
 'use strict';
-
+exports.lograndomsets = false;
 /**
  * The server port - the port to run Pokemon Showdown under
  *
