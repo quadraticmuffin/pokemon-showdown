@@ -1065,7 +1065,9 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		for (const set of sets) {
 			const setHasHp = set.movepool.some(m => m.startsWith('hiddenpower'));
 			if (oldMoves.every(m => (m === 'hiddenpower' && setHasHp) || set.movepool.includes(m))) {
-				possibleSets.push(set);
+				if (oldAbility && set.abilities!.includes(oldAbility)) {
+					possibleSets.push(set);
+				}
 			}
 		}
 		if (possibleSets.length === 0) {
@@ -1167,11 +1169,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const ivs = {hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31};
 
 		const types = species.types;
-		const abilities = Object.values(species.abilities);
-		if (species.unreleasedHidden) {
-			const idx = abilities.indexOf(species.abilities.H, 0);
-			if (idx > -1)  abilities.splice(idx, 1);
-		}
+		const abilities = set.abilities!;
 		// Get moves
 		let moves: Set<string> 
 		let counter: MoveCounter
@@ -1241,9 +1239,14 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		if (['highjumpkick', 'jumpkick'].some(m => moves.has(m))) srWeakness = 2;
 		while (evs.hp > 1) {
 			const hp = Math.floor(Math.floor(2 * species.baseStats.hp + ivs.hp + Math.floor(evs.hp / 4) + 100) * level / 100 + 10);
-			if (moves.has('substitute') && item === 'Sitrus Berry') {
-				// Two Substitutes should activate Sitrus Berry
-				if (hp % 4 === 0) break;
+			if (moves.has('substitute')) {
+				if (item === 'Sitrus Berry') {
+					// Two Substitutes should activate Sitrus Berry
+					if (hp % 4 === 0) break;
+				} else if (!['Black Sludge', 'Leftovers'].includes(item)) {
+					// Should be able to use Substitute four times from full HP without fainting
+					if (hp % 4 > 0) break;
+				}
 			} else if (moves.has('bellydrum') && item === 'Sitrus Berry') {
 				// Belly Drum should activate Sitrus Berry
 				if (hp % 2 === 0) break;
@@ -1292,6 +1295,7 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		const typeCount: {[k: string]: number} = {};
 		const typeComboCount: {[k: string]: number} = {};
 		const typeWeaknesses: {[k: string]: number} = {};
+		const typeDoubleWeaknesses: {[k: string]: number} = {};
 		const teamDetails: RandomTeamsTypes.TeamDetails = {};
 
 		const pokemonList = Object.keys(this.randomSets);
@@ -1347,6 +1351,9 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				if (this.dex.getEffectiveness(typeName, species) > 0) {
 					typeWeaknesses[typeName]++;
 				}
+				if (this.dex.getEffectiveness(typeName, species) > 1) {
+					typeDoubleWeaknesses[typeName]++;
+				}
 			}
 			const newSet = this.randomConstrainedSet(
 				oldSet,
@@ -1398,12 +1405,19 @@ export class RandomGen4Teams extends RandomGen5Teams {
 			}
 			if (skip) continue;
 
-			// Limit three weak to any type
+			// Limit three weak to any type, and one double weak to any type
 			for (const typeName of this.dex.types.names()) {
 				// it's weak to the type
 				if (this.dex.getEffectiveness(typeName, species) > 0) {
 					if (!typeWeaknesses[typeName]) typeWeaknesses[typeName] = 0;
 					if (typeWeaknesses[typeName] >= 3 * limitFactor) {
+						skip = true;
+						break;
+					}
+				}
+				if (this.dex.getEffectiveness(typeName, species) > 1) {
+					if (!typeDoubleWeaknesses[typeName]) typeDoubleWeaknesses[typeName] = 0;
+					if (typeDoubleWeaknesses[typeName] >= 1 * limitFactor) {
 						skip = true;
 						break;
 					}
