@@ -81,8 +81,9 @@ export class RandomGen4Teams extends RandomGen5Teams {
 	}
 
 	consoleLog(s: string) {
-		return;
-		console.log(s);
+		if (Config.lograndomsets) {
+			console.log(s);
+		}
 	}
 
 	cullMovePool(
