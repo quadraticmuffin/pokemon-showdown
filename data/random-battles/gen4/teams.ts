@@ -516,6 +516,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		this.cullMovePool(types, moves, abilities, counter, movePool, teamDetails, species, isLead,
 			preferredType, role);
 
+		if (moves.size === this.maxMoveCount) return moves;
+
 		// If there are only four moves, add all moves and return early
 		if (movePool.length <= this.maxMoveCount - moves.size) {
 			// Still need to ensure that multiple Hidden Powers are not added (if maxMoveCount is increased)
@@ -1080,9 +1082,10 @@ export class RandomGen4Teams extends RandomGen5Teams {
 				possibleSets.push(set);
 			}
 		}
+		const fullySpecified = ((oldItem !== undefined) && (oldAbility !== undefined) && (oldMoves.length === 4))
 		for (let i = 0; i < attempts; i++) {
 			if (i === attempts-1) console.log(`REACHED MAX ATTEMPTS FOR SET: ${criteria.species} item ${oldItem} ability ${oldAbility} moves ${oldMoves} isLead ${criteria.isLead}`);
-			const newSet = this.randomConstrainedSetInner(criteria, possibleSets, teamDetails, i === attempts-1);
+			const newSet = this.randomConstrainedSetInner(criteria, possibleSets, teamDetails, (i === attempts-1) || fullySpecified);
 			const setHasMove = (oldMove: ID) => {
 				return newSet.moves.map((newMove) => {
 					const newMoveId = toID(newMove);
@@ -1317,17 +1320,23 @@ export class RandomGen4Teams extends RandomGen5Teams {
 		// Dynamically scale limits for different team sizes. The default and minimum value is 1.
 		const limitFactor = Math.round(teamSize / 6) || 1;
 
-		//pre-populate teamDetails + other info for known details
+		// Generate unseen data for known Pokemon
 		for (const oldSet of oldSets) {
-			this.populateTeamDetails(oldSet, teamDetails);
 			const species = this.dex.species.get(oldSet.species);
 			const baseSpeciesIndex = baseSpeciesPool.indexOf(species.baseSpecies);
 			this.fastPop(baseSpeciesPool, baseSpeciesIndex);
-			baseFormes[species.baseSpecies] = 1;
-
-			// Because old Pokemon have already passed all checks, we can increment our counters
-
 			const types = species.types;
+
+			const newSet = this.randomConstrainedSet(
+				oldSet,
+				teamDetails,
+				10
+			)
+
+			pokemon.push(newSet);
+
+			baseFormes[species.baseSpecies] = 1;
+			
 			// Increment type counters
 			for (const typeName of types) {
 				if (typeName in typeCount) {
@@ -1346,19 +1355,8 @@ export class RandomGen4Teams extends RandomGen5Teams {
 					typeDoubleWeaknesses[typeName]++;
 				}
 			}
-		}
-		// Generate unseen data for known Pokemon
-		for (const oldSet of oldSets) {
-			const newSet = this.randomConstrainedSet(
-				oldSet,
-				teamDetails,
-				10
-			)
 
-			pokemon.push(newSet);
-			
 			// Count Dry Skin as a Fire weakness
-			const species = this.dex.species.get(oldSet.species);
 			if (newSet.ability === 'Dry Skin' && this.dex.getEffectiveness('Fire', species) === 0) typeWeaknesses['Fire']++;
 
 			// Increment level 100 counter
