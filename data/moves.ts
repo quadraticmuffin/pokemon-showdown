@@ -11085,7 +11085,7 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 				const newMove = this.dex.getActiveMove(move.id);
 				newMove.hasBounced = true;
 				newMove.pranksterBoosted = this.effectState.pranksterBoosted;
-				this.actions.useMove(newMove, target, source);
+				this.actions.useMove(newMove, target, {target: source});
 				return null;
 			},
 			onAllyTryHitSide(target, source, move) {
@@ -11095,7 +11095,7 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 				const newMove = this.dex.getActiveMove(move.id);
 				newMove.hasBounced = true;
 				newMove.pranksterBoosted = false;
-				this.actions.useMove(newMove, this.effectState.target, source);
+				this.actions.useMove(newMove, this.effectState.target, {target: source});
 				return null;
 			},
 		},
@@ -11934,7 +11934,7 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 			if (move.category === 'Status' || move.flags['failmefirst']) return false;
 
 			pokemon.addVolatile('mefirst');
-			this.actions.useMove(move, pokemon, target);
+			this.actions.useMove(move, pokemon, {target});
 			return null;
 		},
 		condition: {
@@ -12459,7 +12459,7 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 			if (!move?.flags['mirror'] || move.isZ || move.isMax) {
 				return false;
 			}
-			this.actions.useMove(move.id, pokemon, target);
+			this.actions.useMove(move.id, pokemon, {target});
 			return null;
 		},
 		callsMove: true,
@@ -13046,7 +13046,7 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 			} else if (this.field.isTerrain('psychicterrain')) {
 				move = 'psychic';
 			}
-			this.actions.useMove(move, pokemon, target);
+			this.actions.useMove(move, pokemon, {target});
 			return null;
 		},
 		callsMove: true,
@@ -13588,26 +13588,6 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 		type: "Normal",
 		zMove: {boost: {def: 1}},
 		contestType: "Clever",
-	},
-	paleowave: {
-		num: 0,
-		accuracy: 100,
-		basePower: 85,
-		category: "Special",
-		isNonstandard: "CAP",
-		name: "Paleo Wave",
-		pp: 15,
-		priority: 0,
-		flags: {protect: 1, mirror: 1},
-		secondary: {
-			chance: 20,
-			boosts: {
-				atk: -1,
-			},
-		},
-		target: "normal",
-		type: "Rock",
-		contestType: "Beautiful",
 	},
 	paraboliccharge: {
 		num: 570,
@@ -16711,26 +16691,6 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 		priority: 1,
 		flags: {contact: 1, protect: 1, mirror: 1, metronome: 1},
 		secondary: null,
-		target: "normal",
-		type: "Ghost",
-		contestType: "Clever",
-	},
-	shadowstrike: {
-		num: 0,
-		accuracy: 95,
-		basePower: 80,
-		category: "Physical",
-		isNonstandard: "CAP",
-		name: "Shadow Strike",
-		pp: 10,
-		priority: 0,
-		flags: {contact: 1, protect: 1, mirror: 1},
-		secondary: {
-			chance: 50,
-			boosts: {
-				def: -1,
-			},
-		},
 		target: "normal",
 		type: "Ghost",
 		contestType: "Clever",
@@ -22067,5 +22027,48 @@ export const Moves: import('../sim/dex-moves').MoveDataTable = {
 		target: "normal",
 		type: "Electric",
 		contestType: "Cool",
+	},
+
+	// CAP moves
+
+	paleowave: {
+		num: 0,
+		accuracy: 100,
+		basePower: 85,
+		category: "Special",
+		isNonstandard: "CAP",
+		name: "Paleo Wave",
+		pp: 15,
+		priority: 0,
+		flags: {protect: 1, mirror: 1},
+		secondary: {
+			chance: 20,
+			boosts: {
+				atk: -1,
+			},
+		},
+		target: "normal",
+		type: "Rock",
+		contestType: "Beautiful",
+	},
+	shadowstrike: {
+		num: 0,
+		accuracy: 95,
+		basePower: 80,
+		category: "Physical",
+		isNonstandard: "CAP",
+		name: "Shadow Strike",
+		pp: 10,
+		priority: 0,
+		flags: {contact: 1, protect: 1, mirror: 1},
+		secondary: {
+			chance: 50,
+			boosts: {
+				def: -1,
+			},
+		},
+		target: "normal",
+		type: "Ghost",
+		contestType: "Clever",
 	},
 };

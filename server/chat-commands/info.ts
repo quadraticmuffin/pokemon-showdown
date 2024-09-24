@@ -1785,7 +1785,8 @@ export const commands: Chat.ChatCommands = {
 		const SUPPORTED_BATTLESPOT_FORMATS = [
 			'gen5gbusingles', 'gen5gbudoubles', 'gen6battlespotsingles', 'gen6battlespotdoubles', 'gen6battlespottriples', 'gen7battlespotsingles', 'gen7battlespotdoubles', 'gen7bssfactory',
 		];
-		const isRandomBattle = room?.battle?.format.endsWith('randombattle');
+		const isRandomBattle = (room?.battle && (room.battle.format.endsWith('randombattle') ||
+			room.battle.format.endsWith('randomdoublesbattle')));
 		const isBattleSpotBattle = (room?.battle && (SUPPORTED_BATTLESPOT_FORMATS.includes(room.battle.format) ||
 			room.battle.format.includes("battlespotspecial")));
 		const {dex} = this.extractFormat(room?.battle?.format);
@@ -2534,8 +2535,7 @@ export const commands: Chat.ChatCommands = {
 	pr: 'pickrandom',
 	pick: 'pickrandom',
 	pickrandom(target, room, user) {
-		if (!target) return false;
-		if (!target.includes(',')) return this.parse('/help pick');
+		if (!target || !target.includes(',')) return this.parse('/help pick');
 		if (!this.runBroadcast(true)) return false;
 		if (this.broadcasting) {
 			[, target] = Utils.splitFirst(this.message, ' ');
@@ -2631,7 +2631,7 @@ export const commands: Chat.ChatCommands = {
 			buf = Utils.html`<img src="${request.link}" width="${width}" height="${height}" />`;
 			if (resized) buf += Utils.html`<br /><a href="${request.link}" target="_blank">full-size image</a>`;
 		} else {
-			buf = await YouTube.generateVideoDisplay(request.link, false, true);
+			buf = await YouTube.generateVideoDisplay(request.link, false);
 			if (!buf) return this.errorReply('Could not get YouTube video');
 		}
 		buf += Utils.html`<br /><div class="infobox"><small>(Requested by ${request.name})</small>`;
@@ -2706,7 +2706,7 @@ export const commands: Chat.ChatCommands = {
 		this.runBroadcast();
 		let buf;
 		if (YouTube.linkRegex.test(link)) {
-			buf = await YouTube.generateVideoDisplay(link, false, this.broadcasting);
+			buf = await YouTube.generateVideoDisplay(link, false);
 			this.message = this.message.replace(/&ab_channel=(.*)(&|)/ig, '').replace(/https:\/\/www\./ig, '');
 		} else if (Twitch.linkRegex.test(link)) {
 			const channelId = Twitch.linkRegex.exec(link)?.[2]?.trim();

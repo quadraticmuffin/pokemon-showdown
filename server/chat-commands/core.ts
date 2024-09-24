@@ -16,7 +16,7 @@
 /* eslint no-else-return: "error" */
 import {Utils} from '../../lib';
 import type {UserSettings} from '../users';
-import type {GlobalPermission} from '../user-groups';
+import type {GlobalPermission, RoomPermission} from '../user-groups';
 
 export const crqHandlers: {[k: string]: Chat.CRQHandler} = {
 	userdetails(target, user, trustable) {
@@ -143,6 +143,37 @@ export const crqHandlers: {[k: string]: Chat.CRQHandler} = {
 		}
 
 		return targetRoom.battle.format;
+	},
+	cmdsearch(target, user, trustable) {
+		// in no world should ths be a thing. our longest command name is 37 chars
+		if (target.length > 40) return null;
+		const cmdPrefix = target.charAt(0);
+		if (!['/', '!'].includes(cmdPrefix)) return null;
+		target = toID(target.slice(1));
+
+		const results = [];
+		for (const command of Chat.allCommands()) {
+			if (cmdPrefix === '!' && !command.broadcastable) continue;
+			const req = command.requiredPermission as GlobalPermission;
+			if (!!req &&
+				!(command.hasRoomPermissions ? !!this.room && user.can(req as RoomPermission, null, this.room) : user.can(req))
+			) {
+				continue;
+			}
+			const cmds = [
+				command.fullCmd,
+				...command.aliases.map(x => command.fullCmd.replace(command.cmd, `${x}`)),
+			];
+			for (const cmd of cmds) {
+				if (toID(cmd).startsWith(target)) {
+					results.push(cmdPrefix + cmd);
+					break;
+				}
+			}
+			// limit number of results to prevent spam
+			if (results.length >= 20) break;
+		}
+		return results;
 	},
 };
 
@@ -375,10 +406,23 @@ export const commands: Chat.ChatCommands = {
 
 		const pmTarget = this.pmTarget; // not room means it's a PM
 		if (!pmTarget) {
-			const {targetUser, rest: targetRoomid} = this.requireUser(target);
-			const targetRoom = targetRoomid ? Rooms.search(targetRoomid) : room;
-			if (!targetRoom) return this.errorReply(this.tr`The room "${targetRoomid}" was not found.`);
-			return this.parse(`/pm ${targetUser.name}, /invite ${targetRoom.roomid}`);
+			const users = target.split(',').map(part => part.trim());
+			let targetRoom;
+			if (users.length > 1 && Rooms.search(users[users.length - 1])) {
+				targetRoom = users.pop();
+			} else {
+				targetRoom = room;
+			}
+			if (users.length > 1 && !user.trusted) {
+				return this.errorReply("You do not have permission to mass-invite users.");
+			}
+			if (users.length > 10) {
+				return this.errorReply("You cannot invite more than 10 users at once.");
+			}
+			for (const toInvite of users) {
+				this.parse(`/pm ${toInvite}, /invite ${targetRoom}`);
+			}
+			return;
 		}
 
 		const targetRoom = Rooms.search(target);
@@ -405,6 +449,7 @@ export const commands: Chat.ChatCommands = {
 	},
 	invitehelp: [
 		`/invite [username] - Invites the player [username] to join the room you sent the command to.`,
+		`/invite [comma-separated usernames] - Invites multiple users to join the room you sent the command to. Requires trusted`,
 		`/invite [username], [roomname] - Invites the player [username] to join the room [roomname].`,
 		`(in a PM) /invite [roomname] - Invites the player you're PMing to join the room [roomname].`,
 	],
